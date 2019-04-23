@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+
+<launch>
+
+    <arg name="node_name" default="grav_comp_node" />
+    <node pkg="grav_comp" type="grav_comp" name="$(arg node_name)"
+          output="screen" cwd="node">
+
+          <rosparam>
+            robot_type: "lwr4p_sim"
+            train_data_filename: "kuka_train_data.bin"
+            sim_data_filename: "sim_data.bin"
+          </rosparam>
+
+    </node>
+
+</launch>
