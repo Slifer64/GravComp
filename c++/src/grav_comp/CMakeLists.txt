@@ -56,6 +56,7 @@ set(SRC_LIST
   src/source_list/robot/robot.cpp
   src/source_list/robot/lwr4p_robot.cpp
   src/source_list/robot/lwr4p_sim_robot.cpp
+  src/source_list/tool_estimator.cpp
 
   src/main.cpp
 )

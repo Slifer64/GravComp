@@ -6,15 +6,19 @@
 #include <iostream>
 #include <string>
 
+#include <ros/package.h>
+
 namespace lwr4p
 {
 
   Robot::Robot(const char *path_to_FRI_init): N_JOINTS(7)
   {
     if (path_to_FRI_init == NULL)
-      FRI.reset(new FastResearchInterface("/home/user/lwr/980500-FRI-Driver.init"));
-    else
-      FRI.reset(new FastResearchInterface(path_to_FRI_init));
+    {
+      std::string path = ros::package::getPath("lwr4p") + "/FRILibrary/980500-FRI-Driver.init";
+      FRI.reset(new FastResearchInterface(path.c_str()));
+    }
+    else FRI.reset(new FastResearchInterface(path_to_FRI_init));
 
     cycle = FRI->GetFRICycleTime();
     this->mode = lwr4p::Mode::UNDEFINED;  // Dummy initialization before stopping controller

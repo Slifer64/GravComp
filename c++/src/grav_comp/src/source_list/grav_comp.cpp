@@ -51,7 +51,7 @@ void GravComp::launchGUI()
 void GravComp::run()
 {
   q_start = robot->getJointsPosition();
-  controller_finished = false;
+  ctrl_running = false;
 
   readParams();
 
@@ -60,25 +60,11 @@ void GravComp::run()
     // =======> Check mode
     if (gui->getMode()==MainWindow::FREEDRIVE && robot->getMode()!=Robot::FREEDRIVE) setMode(Robot::FREEDRIVE);
     else if (gui->getMode()==MainWindow::IDLE && robot->getMode()!=Robot::IDLE) setMode(Robot::IDLE);
-    else if (gui->getMode()==MainWindow::RUN_CONTROLLER && robot->getMode()!=robot_run_ctrl_mode)
+    else if (gui->getMode()==MainWindow::RUN_CONTROLLER && !ctrl_running)
     {
-      setMode(robot_run_ctrl_mode);
-      controller_finished = false;
-      if (!is_CoM_calculated)
-      {
-        gui->notTrainedSignal("Cannot run the controller!\n The CoM is not calculated...");
-      }
-      else
-      {
-        // readParams();
-        if (robot_run_ctrl_mode == Robot::CART_VEL_CTRL) std::thread(&GravComp::simulate_CartVelCtrl, this).detach();
-      }
-    }
-
-    if (gui->getMode()==MainWindow::RUN_CONTROLLER && controller_finished)
-    {
-      controller_finished = false;
-      gui->controllerFinishedSignal("The controller has finished execution!");
+      setMode(Robot::FREEDRIVE);
+      ctrl_running = true;
+      std::thread(&GravComp::simulate_CartVelCtrl, this).detach();
     }
 
     // =======> Check if robot is ok
@@ -115,7 +101,7 @@ void GravComp::run()
     if (gui->recCurrentWrenchQuat())
     {
       if (! recordCurrentWrenchQuat() ) gui->sendRecCurrentWrenchQuatAck(false, getErrMsg().c_str());
-      else gui->sendRecCurrentWrenchQuatAck(true, QString("Recorded current wrench and orientation!"));
+      else gui->sendRecCurrentWrenchQuatAck(true, QString("Recorded current wrench and orientation!\n") + getInfoMsg().c_str());
     }
 
     // robot->update();
@@ -151,6 +137,10 @@ bool GravComp::recordCurrentWrenchQuat()
 
     std::cerr << "Wrench_data.size() = " << Wrench_data.size() << "\n";
     std::cerr << "Quat_data.size() = " << Quat_data.size() << "\n";
+
+    std::ostringstream oss;
+    oss << "wrench = " << wrench_temp.t() << "\n";
+    setInfoMsg(oss.str());
   }
   catch(std::exception &e)
   {
@@ -227,14 +217,27 @@ bool GravComp::calcCoM()
 {
   try{
     if (Wrench_data.size() == 0) throw std::runtime_error("No data were recorded!");
-    
-    CoM(0) = 0;
-    CoM(1) = 0;
-    CoM(2) = 0;
+
+    tool_estimator.estimatePayload(Wrench_data, Quat_data);
+
+    // CoM.resize(3);
+    // CoM(0) = 0;
+    // CoM(1) = 0;
+    // CoM(2) = 0;
+    // mass = 0;
+
+    mass = tool_estimator.mass;
+    CoM.resize(3);
+    CoM(0) = tool_estimator.center_of_mass(0);
+    CoM(1) = tool_estimator.center_of_mass(1);
+    CoM(2) = tool_estimator.center_of_mass(2);
+
+    std::ostringstream oss;
+    oss << "mass: " << mass << "\n";
+    oss << "CoM: " << CoM.t() << "\n";
+    setInfoMsg(oss.str().c_str());
 
     is_CoM_calculated = true;
-
-    setInfoMsg("");
   }
   catch(std::exception &e)
   {
@@ -248,7 +251,25 @@ bool GravComp::calcCoM()
 
 void GravComp::simulate_CartVelCtrl()
 {
-  controller_finished = true;
+  arma::vec wrench(6);
+  Eigen::Map<Eigen::Vector6d> wrench_map(wrench.memptr());
+  arma::vec quat(4);
+
+  while (gui->getMode()==MainWindow::RUN_CONTROLLER)
+  {
+
+    robot->update();
+    wrench = robot->getTaskWrench();
+    quat = robot->getTaskOrientation();
+    Eigen::Vector6d tool_wrench = tool_estimator.getGravityWrench(Eigen::Quaterniond(quat(0),quat(1),quat(2),quat(3)));
+    wrench_map -= tool_wrench;
+    
+    std::cout << "wrench = " << wrench.t() << "\n";
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  }
+
+  ctrl_running = false;
 }
 
 bool GravComp::saveCoMData(const std::string &save_path)

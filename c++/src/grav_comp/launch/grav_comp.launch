@@ -7,7 +7,7 @@
           output="screen" cwd="node">
 
           <rosparam>
-            robot_type: "lwr4p_sim"
+            robot_type: "lwr4p"
             robot_run_ctrl_mode: "CART_VEL_CTRL" # { "CART_VEL_CTRL", "JOINT_TORQUE_CONTROL" }
 
             train_data_filename: "kuka_train_data.bin"

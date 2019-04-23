@@ -10,6 +10,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ ${CMAKE_MODULE_PATH} )
 find_package(FastResearchInterfaceLibrary REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
+  roslib
   kdl_parser
   std_msgs
 )

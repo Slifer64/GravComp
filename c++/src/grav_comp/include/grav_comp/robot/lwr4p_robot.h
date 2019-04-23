@@ -40,26 +40,26 @@ public:
 
   arma::vec getTaskWrench() const
   {
-    // static double measurements[6];
-    // uint32_t rdt(0),ft(0);
-    // (const_cast<ati::FTSensor *>(&ftsensor))->getMeasurements(measurements,rdt,ft);
-    // //ftsensor.getMeasurements(measurements,rdt,ft);
-    //
-    // arma::vec Fext(6);
-    // Fext(0) = measurements[0];
-    // Fext(1) = measurements[1];
-    // Fext(2) = measurements[2];
-    // Fext(3) = measurements[3];
-    // Fext(4) = measurements[4];
-    // Fext(5) = measurements[5];
-    //
+    static double measurements[6];
+    uint32_t rdt(0),ft(0);
+    (const_cast<ati::FTSensor *>(&ftsensor))->getMeasurements(measurements,rdt,ft);
+    //ftsensor.getMeasurements(measurements,rdt,ft);
+
+    arma::vec Fext(6);
+    Fext(0) = measurements[0];
+    Fext(1) = measurements[1];
+    Fext(2) = measurements[2];
+    Fext(3) = measurements[3];
+    Fext(4) = measurements[4];
+    Fext(5) = measurements[5];
+
     // arma::mat R = robot->getTaskOrientation();
     // Fext.subvec(0,2) = R*Fext.subvec(0,2);
     // Fext.subvec(3,5) = R*Fext.subvec(3,5);
 
-    arma::vec Fext(6);
-    Fext = robot->getExternalWrench();
-    Fext = -Fext;
+    // arma::vec Fext(6);
+    // Fext = robot->getExternalWrench();
+    // Fext = -Fext;
 
     return Fext;
   }

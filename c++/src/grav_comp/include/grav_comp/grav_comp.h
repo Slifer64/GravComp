@@ -11,10 +11,7 @@
 
 #include <grav_comp/gui/mainwindow.h>
 
-namespace Eigen
-{
-typedef Matrix<double,6,1> Vector6d;
-}
+#include <grav_comp/tool_estimator.h>
 
 class GravComp
 {
@@ -53,11 +50,14 @@ private:
 
   std::vector<Eigen::Vector6d> Wrench_data;
   std::vector<Eigen::Quaterniond> Quat_data;
-  Eigen::Vector3d CoM;
+  arma::vec CoM;
+  double mass;
+
+  arl::ToolEstimator tool_estimator;
 
   bool is_CoM_calculated;
 
-  bool controller_finished;
+  bool ctrl_running;
 
   arma::vec Fext_dead_zone;
   double a_fext_filt;

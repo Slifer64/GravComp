@@ -83,100 +83,13 @@ LWR4p_Robot::LWR4p_Robot()
   robot.reset(new lwr4p::Robot());
   // std::cerr << "=======> Robot created successfully!\n";
 
-
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-
-
-  // arma::vec Kp({30, 30, 30});
-  // arma::vec Dp({10, 10, 10});
-  // arma::vec Ko({0.8, 0.8, 0.8});
-  // arma::vec Do({0.3, 0.3, 0.3});
-  //
-  // robot->setMode(lwr4p::Mode::TORQUE_CONTROL);
-  // robot->waitNextCycle();
-  //
-  // arma::vec q_robot = robot->getJointPosition();
-  // arma::vec q_robot_prev = q_robot;
-  // arma::vec P0 = this->getTaskPosition();
-  // arma::vec Q0 = this->getTaskOrientation();
-  // arma::vec Q_robot_prev = Q0;
-  // double dt = robot->getControlCycle();
-  //
-  // std::string path = ros::package::getPath("grav_comp") + "/out.txt";
-  // std::ofstream out(path, std::ios::out);
-  //
-  // std::cerr << "===>> Main Ctrl loop...\n";
-  //
-  // int iters = 0;
-  //
-  // // simulate
-  // while (isOk())
-  // {
-  //   q_robot_prev = q_robot;
-  //   q_robot = robot->getJointPosition();
-  //   arma::vec dq_robot = (q_robot - q_robot_prev) / dt;
-  //   arma::mat Jrobot = robot->getRobotJacobian();
-  //   arma::vec Vrobot = Jrobot*dq_robot;
-  //
-  //   arma::vec dP_robot = Vrobot.subvec(0,2);
-  //   arma::vec P_robot = robot->getTaskPosition();
-  //   arma::vec vRot_robot = Vrobot.subvec(3,5);
-  //   arma::vec Q_robot = getTaskOrientation();
-  //   if (arma::dot(Q_robot_prev, Q_robot)<0) Q_robot=-Q_robot;
-  //
-  //   arma::vec P = P0;
-  //   arma::vec dP = arma::vec().zeros(3);
-  //   arma::vec Q = Q0;
-  //   arma::vec vRot = arma::vec().zeros(3);
-  //
-  //   arma::vec eo = quatLog( quatProd( Q_robot, quatInv(Q) ) );
-  //   arma::vec u = -Jrobot.submat(0, 0, 2, 6).t() * ( Kp%(P_robot-P) + Dp%(dP_robot-dP)  )
-  // 		           -Jrobot.submat(3, 0, 5, 6).t() * (Ko%eo + Do%(vRot_robot-vRot) );
-  //
-  //   if (iters % 100 == 0)
-  //   {
-  //     out << "=========================================\n";
-  //     out << "e_p " << arma::norm(P_robot-P) << "\n"
-  //         << "de_p = " << arma::norm(dP_robot-dP) << "\n"
-  //         << "e_o = " << arma::norm(eo) << "\n"
-  //         << "de_o = " << arma::norm(vRot_robot-vRot) << "\n"
-  //         << "u = " << u.t() << "\n";
-  //   }
-  //
-  //   robot->setJointTorque(u);
-  //   robot->waitNextCycle();
-  // }
-  //
-  // out.close();
-  //
-  // exit(-1);
-
-
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-  // =========================================================================
-
-
-
   std::string ft_sensor_ip = "192.168.2.1";
-  // std::cerr << "Initializing F/T sensor at ip: " << ft_sensor_ip << "\n";
+  std::cerr << "Initializing F/T sensor at ip: " << ft_sensor_ip << "\n";
   ftsensor.init(ft_sensor_ip.c_str());
   ftsensor.setTimeout(1.0);
-  ftsensor.setBias();
+  // ftsensor.setBias();
+
+  std::cerr << "Initialed\n";
 
   ext_stop = false;
   mode.set(Robot::STOPPED);
