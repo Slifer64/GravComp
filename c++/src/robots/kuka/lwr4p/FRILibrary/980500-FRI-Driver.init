@@ -1,0 +1,22 @@
+# Initialization file for the KUKA Fast Research Interface of the Light-Weight Robot IV
+
+[RobotName]
+Name=980500
+
+[Priorities]
+#Priority range: 1..63
+KRCCommunicationThread=99
+TimerThread=98
+MainThread=99
+OutputConsoleThread=5
+
+[ControlValues]
+# Cycle time in seconds
+CycleTime=0.004
+
+[Logging]
+NumberOfLoggingFileEntries=600000
+LoggingPath=/home/user/lwr/output
+LoggingFileName=LWR-Scope.dat
+#LoggingStrategy=Standard
+LoggingStrategy=/home/user/lwr/config_dimpapag.conf

@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+
+<launch>
+
+    <arg name="node_name" default="grav_comp_node" />
+    <node pkg="grav_comp" type="grav_comp" name="$(arg node_name)"
+          output="screen" cwd="node">
+
+          <rosparam>
+            robot_type: "lwr4p_sim"
+            robot_run_ctrl_mode: "CART_VEL_CTRL" # { "CART_VEL_CTRL", "JOINT_TORQUE_CONTROL" }
+
+            train_data_filename: "kuka_train_data.bin"
+            sim_data_filename: "sim_data.bin"
+
+            a_fext_filt: 0.9
+
+            Fext_dead_zone: [0.8, 0.8, 0.8, 0.4, 0.4, 0.4]
+
+          </rosparam>
+
+    </node>
+
+</launch>
