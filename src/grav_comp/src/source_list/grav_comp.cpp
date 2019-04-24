@@ -193,9 +193,9 @@ ExecResultMsg GravComp::calcCoM()
 
     mass = tool_estimator.mass;
     CoM.resize(3);
-    CoM(0) = tool_estimator.center_of_mass(0);
-    CoM(1) = tool_estimator.center_of_mass(1);
-    CoM(2) = tool_estimator.center_of_mass(2);
+    CoM(0) = tool_estimator.CoM(0);
+    CoM(1) = tool_estimator.CoM(1);
+    CoM(2) = tool_estimator.CoM(2);
 
     std::ostringstream oss;
     oss << "mass: " << mass << "\n";
@@ -208,7 +208,7 @@ ExecResultMsg GravComp::calcCoM()
       {
         is_nan = true;
         oss << "Warning: CoM(" << (QString::number(i)).toStdString() << ")=nan will be set to zero.\n";
-        tool_estimator.center_of_mass(i) = CoM(i) = 0;
+        tool_estimator.CoM(i) = CoM(i) = 0;
       }
     }
 

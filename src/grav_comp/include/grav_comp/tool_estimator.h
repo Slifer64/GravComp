@@ -27,10 +27,10 @@ public:
    * measurement data.
    *
    * \param wrench_data A number of recorded wrenches
-   * \param orientation_data The orientation w.r.t. the world for each recorded
+   * \param quat_data The orientation w.r.t. the world for each recorded
    * wrench
    */
-  void estimatePayload(const std::vector<Eigen::Vector6d>& wrench_data, const std::vector<Eigen::Quaterniond>& orientation_data);
+  void estimatePayload(const std::vector<Eigen::Vector6d>& wrench_data, const std::vector<Eigen::Quaterniond>& quat_data);
 
   /**
    * \brief Calculates the gravity wrench of the tool based on the orientation
@@ -39,7 +39,7 @@ public:
 
   Eigen::Vector3d gravity_vector_world;  ///< The gravity vector w.r.t. the world frame
   double mass;  ///< The mass of the tool
-  Eigen::Vector3d center_of_mass;  ///< The center of mass of the tool
+  Eigen::Vector3d CoM;  ///< The center of mass of the tool
 };
 
 #endif  // AUTHARL_CORE_MATH_TOOL_ESTIMATOR_H
