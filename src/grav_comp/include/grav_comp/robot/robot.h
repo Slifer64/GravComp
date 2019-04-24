@@ -19,6 +19,7 @@ public:
   /** The control modes that can be applied to the robot. */
   enum Mode
   {
+    JOINT_POS_CONTROL, // joint torque control
     JOINT_TORQUE_CONTROL, // joint torque control
     CART_VEL_CTRL, // Cartesian velocity control
     FREEDRIVE, // freedrive mode (or gravity compensation)
@@ -59,6 +60,7 @@ public:
 
   virtual void commandThread() = 0;
 
+  virtual void setJointsPosition(const arma::vec &jpos) = 0;
   virtual void setJointsTorque(const arma::vec &jtorq) = 0;
   virtual void setTaskVelocity(const arma::vec &vel) = 0;
 
@@ -73,6 +75,8 @@ public:
 
   virtual arma::vec getCompTaskWrench() const = 0;
 
+  static arma::mat get5thOrder(double t, arma::vec p0, arma::vec pT, double totalTime);
+  
 protected:
 
   Eigen::Vector4d rotm2quat(Eigen::Matrix3d rotm) const;

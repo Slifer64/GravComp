@@ -1,6 +1,21 @@
 #include "utils.h"
 
-void showErrorMsg(const QString &msg)
+int showMsg(const ExecResultMsg &msg)
+{
+  switch (msg.getType())
+  {
+    case ExecResultMsg::INFO:
+      return showInfoMsg(msg.getMsg().c_str());
+    case ExecResultMsg::WARNING:
+      return showWarningMsg(msg.getMsg().c_str());
+    case ExecResultMsg::ERROR:
+      return showErrorMsg(msg.getMsg().c_str());
+    case ExecResultMsg::QUESTION:
+      return showQuestionMsg(msg.getMsg().c_str());
+  }
+}
+
+int showErrorMsg(const QString &msg)
 {
     QMessageBox msg_box;
 
@@ -12,7 +27,7 @@ void showErrorMsg(const QString &msg)
     msg_box.exec();
 }
 
-void showWarningMsg(const QString &msg)
+int showWarningMsg(const QString &msg)
 {
     QMessageBox msg_box;
 
@@ -36,7 +51,7 @@ int showQuestionMsg(const QString &msg)
     return msg_box.exec();
 }
 
-void showInfoMsg(const QString &msg)
+int showInfoMsg(const QString &msg)
 {
     QMessageBox msg_box;
 

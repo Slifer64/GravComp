@@ -26,6 +26,8 @@
 #include <grav_comp/utils.h>
 #include <grav_comp/robot/robot.h>
 
+class GravComp;
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -38,7 +40,7 @@ public:
       IDLE = 57
     };
 
-    MainWindow(const Robot *robot, QWidget *parent = 0);
+    MainWindow(const Robot *robot, GravComp *grav_comp, QWidget *parent = 0);
     ~MainWindow();
 
     void setMode(const Mode &m);
@@ -47,33 +49,22 @@ public:
 
     bool isRunning() const { return is_running; }
 
-    bool calcCoM() const { return calc_CoM(); }
-    void sendcalcCoMAck(bool success, const QString &msg)  { emit calcCoMAckSignal(success,msg); update_gui_sem.wait(); }
+    bool recPredefPoses() const { return rec_predef_poses(); }
+    //void sendRecPredefPosesAck(const ExecResultMsg &msg)  { emit recPredefPosesAckSignal(success,msg); update_gui_sem.wait(); }
 
-    bool recCurrentWrenchQuat() const { return rec_wrenchQuat(); }
-    void sendRecCurrentWrenchQuatAck(bool success, const QString &msg)  { emit recWrenchQuatAckSignal(success,msg); update_gui_sem.wait(); }
-
-    bool clearWrenchQuatData() const { return clear_WrenchQuat_data(); }
-    void sendclearWrenchQuatDataAck(bool success, const QString &msg) { emit clearWrenchQuatDataAckSignal(success,msg); update_gui_sem.wait(); }
-
-    bool loadData() const { return load_data(); }
-    void sendLoadAck(bool success, const QString &msg) { emit loadAckSignal(success,msg); update_gui_sem.wait(); }
     std::string getLoadDataPath() const { return load_data_path; }
-
-    bool saveData() const { return save_data(); }
-    void sendSaveAck(bool success, const QString &msg) { emit saveAckSignal(success,msg); update_gui_sem.wait(); }
     std::string getSaveDataPath() const { return save_data_path; }
 
 signals:
-    void terminateAppSignal(const QString &msg);
-    void controllerFinishedSignal(const QString &msg);
-    void notTrainedSignal(const QString &msg);
+    void robotNotOkSignal(const QString &msg);
     void modeChangedSignal();
-    void loadAckSignal(bool success, const QString &msg);
-    void saveAckSignal(bool success, const QString &msg);
-    void calcCoMAckSignal(bool success, const QString &msg);
-    void clearWrenchQuatDataAckSignal(bool success, const QString &msg);
-    void recWrenchQuatAckSignal(bool success, const QString &msg);
+    void emergencyStopAckSignal();
+    void loadAckSignal(const ExecResultMsg &msg);
+    void saveAckSignal(const ExecResultMsg &msg);
+    void calcCoMAckSignal(const ExecResultMsg &msg);
+    void clearWrenchQuatDataAckSignal(const ExecResultMsg &msg);
+    void recWrenchQuatAckSignal(const ExecResultMsg &msg);
+    void recPredefPosesAckSignal(const ExecResultMsg &msg);
 
 private slots:
     void loadTriggered();
@@ -82,89 +73,108 @@ private slots:
     void calcCoMPressed();
     void clearWrenchQuatDataPressed();
     void recWrenchQuatPressed();
+    void recPredefPosesPressed();
+    void emergencyStopPressed();
 
-    void loadAckSlot(bool success, const QString &msg);
-    void saveAckSlot(bool success, const QString &msg);
-    void startPoseAckSlot(bool success, const QString &msg);
-    void clearWrenchQuatDataAckSlot(bool success, const QString &msg);
-    void calcCoMAckSlot(bool success, const QString &msg);
+    void loadAckSlot(const ExecResultMsg &msg);
+    void saveAckSlot(const ExecResultMsg &msg);
+    void recWrenchQuatAckSlot(const ExecResultMsg &msg);
+    void recPredefPosesAckSlot(const ExecResultMsg &msg);
+    void clearWrenchQuatDataAckSlot(const ExecResultMsg &msg);
+    void calcCoMAckSlot(const ExecResultMsg &msg);
 
-    void notTrainedSlot(const QString &msg);
-    void controllerFinishedSlot(const QString &msg);
-    void terminateAppSlot(const QString &msg);
+    void robotNotOkSlot(const QString &msg);
     void modeChangedSlot();
+    void emergencyStopAckSlot();
 
 private:
-    QWidget *central_widget;
-    QStatusBar *status_bar;
+    Mode mode; ///< The Robot control modes that can be setted through the GUI.
+    std::map<Mode, QString> mode_name; ///< The names of Robot control modes that can be setted through the GUI.
+    bool is_running; ///< Flag that signals if the GUI is running or not.
+    // Semaphore update_gui_sem; ///< Semaphore for blocking/notifying an execution thread, so as to synchronize it with the GUI.
 
-    std::map<Mode, QString> mode_name;
+    MtxVar<bool> calc_CoM; ///< Flag that becomes true when the CoM calculation is triggered and is reseted to false when the calculation is done.
+    MtxVar<bool> clear_WrenchQuat_data; ///< Flag that becomes true when clear of the recored data is triggered and is reseted to false when the clear is done.
+    MtxVar<bool> rec_wrenchQuat; ///< Flag that becomes true when recording of data is triggered and is reseted to false when the recording is done.
+    MtxVar<bool> rec_predef_poses; ///< Flag that becomes true when recording of data from predefined poses is triggered and is reseted to false when the recording is done.
+    MtxVar<bool> load_data; ///< Flag that becomes true when loading of mass-CoM is triggered and is reseted to false when the loading is done.
+    MtxVar<bool> save_data; ///< Flag that becomes true when saving of mass-CoM is triggered and is reseted to false when the saving is done.
+    MtxVar<bool> emergency_stop;
 
-    Semaphore update_gui_sem;
+    std::string default_data_path; ///< Default path were every load/save dialog that opens points to initially.
+    std::string save_data_path; ///< Path to save the mass-CoM data.
+    std::string load_data_path; ///< Path to load the mass-CoM data.
 
-    Mode mode;
-
-    bool is_running;
-
-    MtxVar<bool> calc_CoM;
-    MtxVar<bool> clear_WrenchQuat_data;
-    MtxVar<bool> rec_wrenchQuat;
-    MtxVar<bool> load_data;
-    MtxVar<bool> save_data;
-    std::string save_data_path;
-    std::string default_data_path;
-    std::string load_data_path;
-
-    const Robot *robot;
-    ViewPoseDialog *view_pose_dialog;
-    ViewJPosDialog *view_jpos_dialog;
-    ViewWrenchDialog *view_wrench_dialog;
+    GravComp *grav_comp; ///< Pointer to object with the execution functionalities.
+    const Robot *robot; ///< Pointer to object with the robot functionality.
+    ViewPoseDialog *view_pose_dialog; ///< Pointer to QDialog object for displaying the robot tool pose.
+    ViewJPosDialog *view_jpos_dialog; ///< Pointer to QDialog object for displaying the robot's joint angles.
+    ViewWrenchDialog *view_wrench_dialog; ///< Pointer to QDialog object for displaying the robot's tool wrench.
 
     // ======  menus  ========
-    QMenuBar *menu_bar;
-    QMenu *file_menu;
-    QMenu *edit_menu;
-    QMenu *view_menu;
+    QMenuBar *menu_bar; ///< Menu Bar.
+    QMenu *file_menu;  ///< File menu.
+    QMenu *edit_menu; ///< Edit menu.
+    QMenu *view_menu; ///< View Menu.
 
     // ======  actions  ========
-
-    QAction *load_CoM_act;
-    QAction *save_act;
-    QAction *save_as_act;
-
-    QAction *view_wrench_act;
-    QAction *view_pose_act;
-    QAction *view_joints_act;
+    QAction *load_CoM_act; ///< Triggers a QAction connected with the execution of the mass-CoM load.
+    QAction *save_act; ///< Triggers a QAction connected with the execution of the mass-CoM save.
+    QAction *save_as_act; ///< Triggers a QAction connected with the execution of the mass-CoM save as.
+    QAction *view_pose_act; ///< Triggers a QAction connected with the launch of 'view_pose_dialog'.
+    QAction *view_joints_act; ///< Triggers a QAction connected with the launch of 'view_jpos_dialog'.
+    QAction *view_wrench_act; ///< Triggers a QAction connected with the launch of 'view_wrench_dialog'.
 
     // ======  widgets  ========
-    QLabel *mode_label;
-    QPushButton *freedrive_btn;
-    QPushButton *idle_btn;
+    QWidget *central_widget;
+    QStatusBar *status_bar;
+    QLabel *mode_label; ///< QLabel displaying text.
+    QPushButton *freedrive_btn; ///< QButton for setting the Robot mode to FREEDRIVE.
+    QPushButton *idle_btn; ///< QButton for setting the Robot mode to IDLE.
 
-    QPushButton *emergency_stop_btn;
-    QPushButton *calc_CoM_btn;
-    QPushButton *rec_wrenchQuat_btn;
-    QPushButton *clear_wrenchQuat_btn;
-    QPushButton *rec_predef_poses_btn;
+    QPushButton *emergency_stop_btn; ///< QButton for enabling emergency stop.
+    QPushButton *calc_CoM_btn; ///< QButton for triggering the execution of the mass-CoM calculation.
+    QPushButton *rec_wrenchQuat_btn; ///< QButton for triggering the execution of wrench and quaternion recording.
+    QPushButton *clear_wrenchQuat_btn; ///< QButton for triggering the execution of recorded wrench-quat data clearance.
+    QPushButton *rec_predef_poses_btn; ///< QButton for triggering the execution of moving from predefined poses and recoring the wrench-quat at each pose.
 
     // ======  layouts  ========
-    QVBoxLayout *mode_layout;
-    QVBoxLayout *btns_layout;
-    QGridLayout *main_layout;
+    QVBoxLayout *mode_layout; ///< QLayout for storing the Robot mode buttons.
+    QVBoxLayout *btns_layout;  ///< QLayout for storing the other buttons.
+    QGridLayout *main_layout; ///< QLayout for storing all other layouts.
 
     // ======  functions  ========
+
+    /** Creates all the widgets, i.e. buttons, labels etc. */
     void createWidgets();
+
+    /** Creates the layouts and assigns the widgets to the corresponding layout. */
     void createLayouts();
+
+    /** Sets up the connections between widget/action signals (i.e. clicked/triggered) and
+    the corresponding functions (slots) that handle the signals. */
     void createConnections();
+
+    /** Creates the QActions that will be stored in the menus. */
     void createActions();
+
+    /** Creates the main menu and submenus in the GUI's menu bar and assigns
+     * each action to the corresponding submenu. */
     void createMenus();
-    void updateInterfaceOnModeChanged();
 
-    void updateInterfaceOnCalcCOMPressed();
-    void updateInterfaceOnClearWrenchQuatData();
-    void updateInterfaceOnLoadData();
-    void updateInterfaceOnSaveData();
+    /** Updates the interface when the Robot's mode changes. */
+    void updateGUIonModeChanged();
 
+    /** Updates the interface when the calculation of mass-CoM is triggered
+     * ('calc_CoM'=true) and when it is finished ('calc_CoM'=false). */
+    void updateGUIonCalcCOMPressed();
+    void updateGUIonRecWrenchQuat();
+    void updateGUIonRecPredefPoses();
+    void updateGUIonClearWrenchQuatData();
+    void updateGUIonLoadData();
+    void updateGUIonSaveData();
+
+    /** Overrides the close event. */
     void closeEvent(QCloseEvent *event) override;
 };
 

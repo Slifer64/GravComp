@@ -15,10 +15,38 @@
 
 #include <armadillo>
 
+#include <QMetaType>
+
 void PRINT_INFO_MSG(const std::string &msg, std::ostream &out = std::cout);
 void PRINT_CONFIRM_MSG(const std::string &msg, std::ostream &out = std::cout);
 void PRINT_WARNING_MSG(const std::string &msg, std::ostream &out = std::cout);
 void PRINT_ERROR_MSG(const std::string &msg, std::ostream &out = std::cout);
+
+class ExecResultMsg
+{
+public:
+
+  enum TYPE
+  {
+      INFO,
+      QUESTION,
+      WARNING,
+      ERROR
+  };
+
+  ExecResultMsg() { type=ExecResultMsg::INFO; msg=""; }
+
+  std::string getMsg() const { return msg; }
+  void setMsg(const std::string &msg) { this->msg = msg; }
+  void addToMsg(const std::string &msg) { this->msg += msg; }
+  void setType(ExecResultMsg::TYPE type) { this->type = type; }
+  ExecResultMsg::TYPE getType() const { return type; }
+private:
+  std::string msg;
+  ExecResultMsg::TYPE type;
+};
+
+Q_DECLARE_METATYPE(ExecResultMsg);
 
 class Semaphore
 {

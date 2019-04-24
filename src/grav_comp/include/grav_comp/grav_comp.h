@@ -1,6 +1,8 @@
 #ifndef GRAVITY_COMPENSATION_H
 #define GRAVITY_COMPENSATION_H
 
+#include <sstream>
+#include <iomanip>
 #include <string>
 #include <vector>
 #include <memory>
@@ -8,9 +10,7 @@
 #include <Eigen/Dense>
 
 #include <grav_comp/robot/robot.h>
-
 #include <grav_comp/gui/mainwindow.h>
-
 #include <grav_comp/tool_estimator.h>
 
 class GravComp
@@ -18,22 +18,23 @@ class GravComp
 
 public:
   GravComp();
+  ~GravComp();
 
-  void run();
+  void launch();
+protected:
 
-private:
-  void launchGUI();
+  friend MainWindow;
 
+  bool rec_predef_poses_run;
+  ExecResultMsg recPredefPoses();
+  ExecResultMsg recordCurrentWrenchQuat();
+  ExecResultMsg clearWrenchQuatData();
 
-  void readParams();
-  bool loadCoMData(const std::string &path);
-  bool calcCoM();
+  ExecResultMsg calcCoM();
+  ExecResultMsg loadCoMData(const std::string &path);
+  ExecResultMsg saveCoMData(const std::string &save_path);
 
-  bool recordCurrentWrenchQuat();
-
-  bool saveCoMData(const std::string &save_path="");
-  bool clearWrenchQuatData();
-
+  void checkRobot();
   void setMode(Robot::Mode mode);
 
   std::string err_msg;
@@ -46,22 +47,11 @@ private:
 
   std::vector<Eigen::Vector6d> Wrench_data;
   std::vector<Eigen::Quaterniond> Quat_data;
+  std::vector<arma::vec> poses;
   arma::vec CoM;
   double mass;
-
   ToolEstimator tool_estimator;
-
   bool is_CoM_calculated;
-
-  bool ctrl_running;
-
-  // training data
-  std::string train_data_filename; // name of the file containing the training data
-
-  // simulation data
-  std::string sim_data_filename; // name of the file where the simulation data will be stored
-
-  arma::wall_clock timer;
 
   // robot
   std::string robot_type;

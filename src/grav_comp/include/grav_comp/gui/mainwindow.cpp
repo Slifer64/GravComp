@@ -1,12 +1,17 @@
 #include "mainwindow.h"
 #include "utils.h"
+
+#include <ros/ros.h>
 #include <ros/package.h>
+
+#include <grav_comp/grav_comp.h>
 
 #include <QDebug>
 
-MainWindow::MainWindow(const Robot *robot, QWidget *parent): QMainWindow(parent)
+MainWindow::MainWindow(const Robot *robot, GravComp *grav_comp, QWidget *parent): QMainWindow(parent)
 {
   this->robot = robot;
+  this->grav_comp = grav_comp;
 
   mode_name[FREEDRIVE] = "FREEDRIVE";
   mode_name[IDLE] = "IDLE";
@@ -37,20 +42,26 @@ MainWindow::MainWindow(const Robot *robot, QWidget *parent): QMainWindow(parent)
   calc_CoM = false;
   clear_WrenchQuat_data = false;
   rec_wrenchQuat = false;
+  rec_predef_poses = false;
   load_data = false;
   save_data = false;
+  emergency_stop = false;
   is_running = true;
 
   default_data_path = ros::package::getPath("grav_comp") + "/data/";
 
   mode = FREEDRIVE;
   setMode(IDLE);
+
+  std::thread([this](){ this->grav_comp->checkRobot();}).detach();
 }
 
 MainWindow::~MainWindow()
 {
 
 }
+
+// ========================     MODE    ==================================
 
 MainWindow::Mode MainWindow::getMode() const
 {
@@ -68,13 +79,30 @@ void MainWindow::setMode(const Mode &m)
 
   mode = m;
 
+  Robot::Mode robot_mode;
+  if (mode==MainWindow::FREEDRIVE) robot_mode = Robot::FREEDRIVE;
+  else if (mode==MainWindow::IDLE) robot_mode = Robot::IDLE;
+
+  std::thread([this,robot_mode]()
+  {
+    this->grav_comp->setMode(robot_mode);
+    modeChangedSignal();
+  }).detach();
+
   idle_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
   freedrive_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
 
   this->setEnabled(false);
 }
 
-void MainWindow::updateInterfaceOnModeChanged()
+void MainWindow::modeChangedSlot()
+{
+  this->setEnabled(true);
+  updateGUIonModeChanged();
+  showInfoMsg("Mode changed to \"" + getModeName() + "\"\n");
+}
+
+void MainWindow::updateGUIonModeChanged()
 {
   switch (getMode())
   {
@@ -91,6 +119,8 @@ void MainWindow::updateInterfaceOnModeChanged()
 
   }
 }
+
+// ======================================================================
 
 void MainWindow::createActions()
 {
@@ -134,19 +164,22 @@ void MainWindow::createConnections()
 
   QObject::connect( calc_CoM_btn, &QPushButton::clicked, this, &MainWindow::calcCoMPressed );
   QObject::connect( rec_wrenchQuat_btn, &QPushButton::clicked, this, &MainWindow::recWrenchQuatPressed );
+  QObject::connect( rec_predef_poses_btn, &QPushButton::clicked, this, &MainWindow::recPredefPosesPressed );
   QObject::connect( clear_wrenchQuat_btn, &QPushButton::clicked, this, &MainWindow::clearWrenchQuatDataPressed );
 
-  QObject::connect( emergency_stop_btn, &QPushButton::clicked, [this](){ const_cast<Robot *>(this->robot)->setExternalStop(true); this->setEnabled(false); } );
+  QObject::connect( emergency_stop_btn, &QPushButton::clicked, this, &MainWindow::emergencyStopPressed);
 
-  QObject::connect( this, SIGNAL(notTrainedSignal(const QString &)), this, SLOT(notTrainedSlot(const QString &)) );
-  QObject::connect( this, SIGNAL(controllerFinishedSignal(const QString &)), this, SLOT(controllerFinishedSlot(const QString &)) );
-  QObject::connect( this, SIGNAL(terminateAppSignal(const QString &)), this, SLOT(terminateAppSlot(const QString &)) );
-  QObject::connect( this, SIGNAL(modeChangedSignal()), this, SLOT(modeChangedSlot()) );
-  QObject::connect( this, SIGNAL(calcCoMAckSignal(bool , const QString &)), this, SLOT(calcCoMAckSlot(bool , const QString &)) );
-  QObject::connect( this, SIGNAL(clearWrenchQuatDataAckSignal(bool , const QString &)), this, SLOT(clearWrenchQuatDataAckSlot(bool , const QString &)) );
-  QObject::connect( this, SIGNAL(loadAckSignal(bool , const QString &)), this, SLOT(loadAckSlot(bool , const QString &)) );
-  QObject::connect( this, SIGNAL(saveAckSignal(bool , const QString &)), this, SLOT(saveAckSlot(bool , const QString &)) );
-  QObject::connect( this, SIGNAL(recWrenchQuatAckSignal(bool , const QString &)), this, SLOT(startPoseAckSlot(bool , const QString &)) );
+  qRegisterMetaType<ExecResultMsg>("ExecResultMsg");
+
+  QObject::connect( this, &MainWindow::robotNotOkSignal, this, &MainWindow::robotNotOkSlot );
+  QObject::connect( this, &MainWindow::modeChangedSignal, this, &MainWindow::modeChangedSlot );
+  QObject::connect( this, &MainWindow::emergencyStopAckSignal, this, &MainWindow::emergencyStopAckSlot );
+  QObject::connect( this, &MainWindow::calcCoMAckSignal, this, &MainWindow::calcCoMAckSlot );
+  QObject::connect( this, &MainWindow::clearWrenchQuatDataAckSignal, this, &MainWindow::clearWrenchQuatDataAckSlot );
+  QObject::connect( this, &MainWindow::loadAckSignal, this, &MainWindow::loadAckSlot );
+  QObject::connect( this, &MainWindow::saveAckSignal, this, &MainWindow::saveAckSlot );
+  QObject::connect( this, &MainWindow::recWrenchQuatAckSignal, this, &MainWindow::recWrenchQuatAckSlot );
+  QObject::connect( this, &MainWindow::recPredefPosesAckSignal, this, &MainWindow::recPredefPosesAckSlot );
 }
 
 void MainWindow::createMenus()
@@ -247,20 +280,51 @@ void MainWindow::createLayouts()
   main_layout->addItem(new QSpacerItem(20,10,QSizePolicy::Preferred,QSizePolicy::Fixed),1,0);
 }
 
-void MainWindow::loadTriggered()
-{
-  load_data_path = QFileDialog::getOpenFileName(this, tr("Load CoM Data"), default_data_path.c_str(), "Binary files (*.bin);;Text files (*.txt);;YAML files (*.yaml)").toStdString();
-  if (load_data_path.empty()) return;
+// ====================    EMERGENCY STOP    ============================
 
-  load_data = true;
-  updateInterfaceOnLoadData();
+void MainWindow::emergencyStopPressed()
+{
+  emergency_stop = true;
+  rec_predef_poses = false;
+
+  std::thread([this]()
+  {
+    this->grav_comp->setMode(Robot::IDLE);
+    emergencyStopAckSignal();
+  }).detach();
+
+  idle_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
+  freedrive_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
+
+  this->setEnabled(false);
 }
+
+void MainWindow::emergencyStopAckSlot()
+{
+  this->setEnabled(true);
+
+  mode = IDLE;
+  freedrive_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
+  idle_btn->setStyleSheet("QPushButton { color: rgb(0, 0, 250); background-color: rgb(0, 255, 0) }");
+
+  showInfoMsg("The robot stopped!\n");
+}
+
+// ========================     SAVE    ==================================
 
 void MainWindow::saveTriggered()
 {
-  save_data_path = default_data_path + "exec_data.bin";
+  std::string filename;
+  if (!ros::NodeHandle("~").getParam("CoM_filename", filename)) filename="";
+  save_data_path = default_data_path + filename;
   save_data = true;
-  updateInterfaceOnSaveData();
+  updateGUIonSaveData();
+
+  std::thread([this]()
+  {
+    ExecResultMsg msg = this->grav_comp->saveCoMData(this->getSaveDataPath());
+    saveAckSignal(msg);
+  }).detach();
 }
 
 void MainWindow::saveAsTriggered()
@@ -270,32 +334,17 @@ void MainWindow::saveAsTriggered()
 
   save_data_path = save_as_data_path.toStdString();
   save_data = true;
-  updateInterfaceOnSaveData();
+  updateGUIonSaveData();
 }
 
-void MainWindow::loadAckSlot(bool success, const QString &msg)
-{
-  load_data = false;
-
-  success ? showInfoMsg(msg) : showErrorMsg(msg);
-
-  update_gui_sem.notify();
-
-  updateInterfaceOnLoadData();
-}
-
-void MainWindow::saveAckSlot(bool success, const QString &msg)
+void MainWindow::saveAckSlot(const ExecResultMsg &msg)
 {
   save_data = false;
-
-  success ? showInfoMsg(msg) : showErrorMsg(msg);
-
-  update_gui_sem.notify();
-
-  updateInterfaceOnSaveData();
+  showMsg(msg);
+  updateGUIonSaveData();
 }
 
-void MainWindow::updateInterfaceOnSaveData()
+void MainWindow::updateGUIonSaveData()
 {
   bool set = !save_data();
 
@@ -303,9 +352,35 @@ void MainWindow::updateInterfaceOnSaveData()
 
   save_act->setEnabled(set);
   save_as_act->setEnabled(set);
+
+  calc_CoM_btn->setEnabled(set);
 }
 
-void MainWindow::updateInterfaceOnLoadData()
+// ========================     LOAD    ==================================
+
+void MainWindow::loadTriggered()
+{
+  load_data_path = QFileDialog::getOpenFileName(this, tr("Load CoM Data"), default_data_path.c_str(), "Binary files (*.bin);;Text files (*.txt);;YAML files (*.yaml)").toStdString();
+  if (load_data_path.empty()) return;
+
+  load_data = true;
+  updateGUIonLoadData();
+
+  std::thread([this]()
+  {
+    ExecResultMsg msg = this->grav_comp->loadCoMData(this->getLoadDataPath());
+    loadAckSignal(msg);
+  }).detach();
+}
+
+void MainWindow::loadAckSlot(const ExecResultMsg &msg)
+{
+  load_data = false;
+  showMsg(msg);
+  updateGUIonLoadData();
+}
+
+void MainWindow::updateGUIonLoadData()
 {
   bool set = !load_data();
 
@@ -313,35 +388,40 @@ void MainWindow::updateInterfaceOnLoadData()
 
   save_act->setEnabled(set);
   save_as_act->setEnabled(set);
+
+  calc_CoM_btn->setEnabled(set);
 }
+
+// =====================   CALC mass-CoM   ================================
 
 void MainWindow::calcCoMPressed()
 {
   calc_CoM = true;
-  updateInterfaceOnCalcCOMPressed();
+  updateGUIonCalcCOMPressed();
+
+  std::thread([this]()
+  {
+    ExecResultMsg msg = this->grav_comp->calcCoM();
+    calcCoMAckSignal(msg);
+  }).detach();
 }
 
-void MainWindow::updateInterfaceOnCalcCOMPressed()
+void MainWindow::calcCoMAckSlot(const ExecResultMsg &msg)
+{
+  calc_CoM = false;
+  showMsg(msg);
+  updateGUIonCalcCOMPressed();
+}
+
+void MainWindow::updateGUIonCalcCOMPressed()
 {
   bool set = !calc_CoM();
-
-  freedrive_btn->setEnabled(set);
-  idle_btn->setEnabled(set);
-  if (set)
-  {
-    if (getMode()==FREEDRIVE) freedrive_btn->setStyleSheet("QPushButton { color: rgb(0, 0, 250); background-color: rgb(0, 255, 0); }");
-    else if (getMode()==IDLE) idle_btn->setStyleSheet("QPushButton { color: rgb(0, 0, 250); background-color: rgb(0, 255, 0); }");
-  }
-  else
-  {
-    freedrive_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
-    idle_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
-  }
 
   calc_CoM_btn->setEnabled(set);
 
   clear_wrenchQuat_btn->setEnabled(set);
   rec_wrenchQuat_btn->setEnabled(set);
+  rec_predef_poses_btn->setEnabled(set);
 
   load_CoM_act->setEnabled(set);
 
@@ -349,103 +429,145 @@ void MainWindow::updateInterfaceOnCalcCOMPressed()
   save_as_act->setEnabled(set);
 }
 
-void MainWindow::calcCoMAckSlot(bool success, const QString &msg)
-{
-  calc_CoM = false;
-
-  success ? showInfoMsg(msg) : showErrorMsg(msg);
-
-  update_gui_sem.notify();
-
-  updateInterfaceOnCalcCOMPressed();
-}
+// ========================     CLEAR    ==================================
 
 void MainWindow::clearWrenchQuatDataPressed()
 {
   clear_WrenchQuat_data = true;
-  updateInterfaceOnClearWrenchQuatData();
+  updateGUIonClearWrenchQuatData();
+
+  std::thread([this]()
+  {
+    ExecResultMsg msg = this->grav_comp->clearWrenchQuatData();
+    clearWrenchQuatDataAckSignal(msg);
+  }).detach();
 }
 
-void MainWindow::clearWrenchQuatDataAckSlot(bool success, const QString &msg)
+void MainWindow::clearWrenchQuatDataAckSlot(const ExecResultMsg &msg)
 {
   clear_WrenchQuat_data = false;
-
-  success ? showInfoMsg(msg) : showErrorMsg(msg);
-
-  update_gui_sem.notify();
-
-  updateInterfaceOnClearWrenchQuatData();
+  showMsg(msg);
+  updateGUIonClearWrenchQuatData();
 }
 
-void MainWindow::updateInterfaceOnClearWrenchQuatData()
+void MainWindow::updateGUIonClearWrenchQuatData()
 {
   bool set = !clear_WrenchQuat_data();
 
-  freedrive_btn->setEnabled(set);
-  idle_btn->setEnabled(set);
-  if (set)
-  {
-    if (getMode()==FREEDRIVE) freedrive_btn->setStyleSheet("QPushButton { color: rgb(0, 0, 250); background-color: rgb(0, 255, 0); }");
-    else if (getMode()==IDLE) idle_btn->setStyleSheet("QPushButton { color: rgb(0, 0, 250); background-color: rgb(0, 255, 0); }");
-  }
-  else
-  {
-    freedrive_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
-    idle_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
-  }
-
+  calc_CoM_btn->setEnabled(set);
   clear_wrenchQuat_btn->setEnabled(set);
   rec_wrenchQuat_btn->setEnabled(set);
+  rec_predef_poses_btn->setEnabled(set);
 
   load_CoM_act->setEnabled(set);
 
   save_act->setEnabled(set);
   save_as_act->setEnabled(set);
 }
+
+// ========================     RECORD    =================================
 
 void MainWindow::recWrenchQuatPressed()
 {
   rec_wrenchQuat = true;
   rec_wrenchQuat_btn->setEnabled(false);
+  updateGUIonRecWrenchQuat();
+
+  std::thread([this]()
+  {
+    ExecResultMsg msg = this->grav_comp->recordCurrentWrenchQuat();
+    recWrenchQuatAckSignal(msg);
+  }).detach();
 }
 
-void MainWindow::startPoseAckSlot(bool success, const QString &msg)
+void MainWindow::recWrenchQuatAckSlot(const ExecResultMsg &msg)
 {
   rec_wrenchQuat = false;
-
-  success ? showInfoMsg(msg) : showErrorMsg(msg);
-
-  update_gui_sem.notify();
-
-  rec_wrenchQuat_btn->setEnabled(true);
+  showMsg(msg);
+  updateGUIonRecWrenchQuat();
 }
+
+void MainWindow::updateGUIonRecWrenchQuat()
+{
+  bool set = !rec_wrenchQuat();
+
+  calc_CoM_btn->setEnabled(set);
+  clear_wrenchQuat_btn->setEnabled(set);
+  rec_wrenchQuat_btn->setEnabled(set);
+  rec_predef_poses_btn->setEnabled(set);
+}
+
+// ==================    RECORD PREDEF POSES    ==========================
+
+void MainWindow::recPredefPosesPressed()
+{
+  rec_predef_poses = true;
+  rec_predef_poses_btn->setEnabled(false);
+  updateGUIonRecPredefPoses();
+
+  std::thread([this]()
+  {
+    ExecResultMsg msg = this->grav_comp->recPredefPoses();
+    recPredefPosesAckSignal(msg);
+  }).detach();
+}
+
+void MainWindow::recPredefPosesAckSlot(const ExecResultMsg &msg)
+{
+  rec_predef_poses = false;
+  showMsg(msg);
+  updateGUIonRecPredefPoses();
+}
+
+void MainWindow::updateGUIonRecPredefPoses()
+{
+  bool set = !rec_predef_poses();
+
+  calc_CoM_btn->setEnabled(set);
+  clear_wrenchQuat_btn->setEnabled(set);
+  rec_wrenchQuat_btn->setEnabled(set);
+  rec_predef_poses_btn->setEnabled(set);
+
+  freedrive_btn->setEnabled(set);
+  idle_btn->setEnabled(set);
+
+  if (set)
+  {
+    if (getMode()==FREEDRIVE) freedrive_btn->setStyleSheet("QPushButton { color: rgb(0, 0, 250); background-color: rgb(0, 255, 0); }");
+    else if  (getMode()==IDLE) idle_btn->setStyleSheet("QPushButton { color: rgb(0, 0, 250); background-color: rgb(0, 255, 0); }");
+  }
+  else
+  {
+    idle_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
+    freedrive_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
+  }
+
+}
+
+// ======================================================================
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+  // reset all flags
   is_running = false;
+  calc_CoM = false;
+  clear_WrenchQuat_data = false;
+  rec_wrenchQuat = false;
+  rec_predef_poses = false;
+  load_data = false;
+  save_data = false;
+
   const_cast<Robot *>(robot)->setExternalStop(true);
-  update_gui_sem.notify(); // unlock possible waits...
+  // update_gui_sem.notify(); // unlock possible waits...
   QMainWindow::closeEvent(event);
 }
 
-void MainWindow::controllerFinishedSlot(const QString &msg)
+void MainWindow::robotNotOkSlot(const QString &msg)
 {
-  showInfoMsg(msg);
-  setMode(IDLE);
-}
-
-void MainWindow::notTrainedSlot(const QString &msg)
-{
-  showErrorMsg(msg);
-  setMode(IDLE);
-}
-
-void MainWindow::terminateAppSlot(const QString &msg)
-{
-  showErrorMsg(msg);
+  rec_predef_poses = false;
 
   QMessageBox msg_box;
-  msg_box.setText(msg);
+  msg_box.setText(msg + "\nDo you want to close the program?");
   msg_box.setIcon(QMessageBox::Critical);
   msg_box.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
   msg_box.setModal(true);
@@ -454,11 +576,4 @@ void MainWindow::terminateAppSlot(const QString &msg)
 
   if (res == QMessageBox::Yes) this->close();
   // else do nothing ...
-}
-
-void MainWindow::modeChangedSlot()
-{
-  this->setEnabled(true);
-  updateInterfaceOnModeChanged();
-  showInfoMsg("Mode changed to \"" + getModeName() + "\"\n");
 }

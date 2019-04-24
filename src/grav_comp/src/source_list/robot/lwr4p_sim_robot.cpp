@@ -58,6 +58,10 @@ void LWR4p_Sim_Robot::commandThread()
     {
       switch (new_mode)
       {
+        case JOINT_POS_CONTROL:
+          // robot->setMode(lwr4p::Mode::POSITION_CONTROL);
+          jpos_cmd.set(jpos);
+          break;
         case JOINT_TORQUE_CONTROL:
           // robot->setMode(lwr4p::Mode::TORQUE_CONTROL);
           jtorque_cmd.set(arma::vec().zeros(N_JOINTS));
@@ -91,6 +95,9 @@ void LWR4p_Sim_Robot::commandThread()
     // send command according to current mode
     switch (mode.get())
     {
+      case JOINT_POS_CONTROL:
+        jpos = jpos_cmd.get();
+        break;
       case JOINT_TORQUE_CONTROL:
         // robot->setJointTorque(jtorque_cmd.get());
         break;

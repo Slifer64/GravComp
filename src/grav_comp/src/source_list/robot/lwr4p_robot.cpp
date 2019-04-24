@@ -125,6 +125,10 @@ void LWR4p_Robot::commandThread()
     {
       switch (new_mode)
       {
+        case JOINT_POS_CONTROL:
+          robot->setMode(lwr4p::Mode::POSITION_CONTROL);
+          jpos_cmd.set(robot->getJointPosition());
+          break;
         case JOINT_TORQUE_CONTROL:
           robot->setMode(lwr4p::Mode::TORQUE_CONTROL);
           jtorque_cmd.set(arma::vec().zeros(N_JOINTS));
@@ -157,6 +161,9 @@ void LWR4p_Robot::commandThread()
     // send command according to current mode
     switch (mode.get())
     {
+      case JOINT_POS_CONTROL:
+        robot->setJointPosition(jpos_cmd.get());
+        break;
       case JOINT_TORQUE_CONTROL:
         robot->setJointTorque(jtorque_cmd.get());
         // std::cerr << "jtorque_cmd.get() = " << jtorque_cmd.get().t() << "\n";
@@ -182,42 +189,6 @@ void LWR4p_Robot::commandThread()
 
   mode_change.notify(); // unblock in case wait was called from another thread
   KRC_tick.notify(); // unblock in case wait was called from another thread
-}
-
-arma::mat get5thOrder(double t, arma::vec p0, arma::vec pT, double totalTime)
-{
-  arma::mat retTemp = arma::zeros<arma::mat>(p0.n_rows, 3);
-
-  if (t < 0)
-  {
-    // before start
-    retTemp.col(0) = p0;
-  }
-  else if (t > totalTime)
-  {
-    // after the end
-    retTemp.col(0) = pT;
-  }
-  else
-  {
-    // somewhere betweeen ...
-    // position
-    retTemp.col(0) = p0 +
-                     (pT - p0) * (10 * pow(t / totalTime, 3) -
-                     15 * pow(t / totalTime, 4) +
-                     6 * pow(t / totalTime, 5));
-    // vecolity
-    retTemp.col(1) = (pT - p0) * (30 * pow(t, 2) / pow(totalTime, 3) -
-                     60 * pow(t, 3) / pow(totalTime, 4) +
-                     30 * pow(t, 4) / pow(totalTime, 5));
-    // acceleration
-    retTemp.col(2) = (pT - p0) * (60 * t / pow(totalTime, 3) -
-                     180 * pow(t, 2) / pow(totalTime, 4) +
-                     120 * pow(t, 3) / pow(totalTime, 5));
-  }
-
-  // return vector
-  return retTemp;
 }
 
 bool LWR4p_Robot::setJointsTrajectory(const arma::vec &qT, double duration)

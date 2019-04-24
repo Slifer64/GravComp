@@ -72,7 +72,8 @@ public:
   bool isOk() const
   { return (is_ok && !ext_stop()); }
 
-  virtual void setJointsTorque(const arma::vec &jtorq) { jtorque_cmd.set(jtorq); }
+  void setJointsPosition(const arma::vec &jpos) { jpos_cmd.set(jpos); }
+  void setJointsTorque(const arma::vec &jtorq) { jtorque_cmd.set(jtorq); }
   void setTaskVelocity(const arma::vec &vel) { cart_vel_cmd.set(vel); }
   bool setJointsTrajectory(const arma::vec &qT, double duration);
 

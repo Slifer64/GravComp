@@ -9,10 +9,13 @@
 #include <mutex>
 #include <condition_variable>
 
-void showErrorMsg(const QString &msg);
-void showWarningMsg(const QString &msg);
+#include <grav_comp/utils.h>
+
+int showErrorMsg(const QString &msg);
+int showWarningMsg(const QString &msg);
 int showQuestionMsg(const QString &msg);
-void showInfoMsg(const QString &msg);
+int showInfoMsg(const QString &msg);
+int showMsg(const ExecResultMsg &msg);
 
 class MyLineEdit: public QLineEdit
 {
