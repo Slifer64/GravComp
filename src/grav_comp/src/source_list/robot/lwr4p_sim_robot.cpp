@@ -22,7 +22,6 @@ LWR4p_Sim_Robot::LWR4p_Sim_Robot(const ToolEstimator *tool_est):Robot(tool_est)
   task_wrench = arma::vec().zeros(6);
   Jacob = arma::mat().eye(6, N_JOINTS);
 
-  ext_stop = false;
   is_ok = true;
   ctr_cycle = 0.002;
   mode.set(Robot::STOPPED);

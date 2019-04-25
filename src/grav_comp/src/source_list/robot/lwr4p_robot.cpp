@@ -65,6 +65,8 @@ arma::vec quatInv(const arma::vec &quat)
 
 LWR4p_Robot::LWR4p_Robot(const ToolEstimator *tool_est):Robot(tool_est)
 {
+  is_ok = true;
+  
   N_JOINTS = 7;
 
   jpos_low_lim = -arma::vec({170, 120, 170, 120, 170, 120, 170});
@@ -79,9 +81,9 @@ LWR4p_Robot::LWR4p_Robot(const ToolEstimator *tool_est):Robot(tool_est)
   }
 
   // Initialize generic robot with the kuka-lwr model
-  // std::cerr << "=======> Creating robot...\n";
+  std::cerr << "=======> Creating robot...\n";
   robot.reset(new lwr4p::Robot());
-  // std::cerr << "=======> Robot created successfully!\n";
+  std::cerr << "=======> Robot created successfully!\n";
 
   std::string ft_sensor_ip = "192.168.2.1";
   std::cerr << "Initializing F/T sensor at ip: " << ft_sensor_ip << "\n";
@@ -91,7 +93,6 @@ LWR4p_Robot::LWR4p_Robot(const ToolEstimator *tool_est):Robot(tool_est)
 
   std::cerr << "Initialed\n";
 
-  ext_stop = false;
   mode.set(Robot::STOPPED);
   cmd_mode.set(mode.get());
   jpos_cmd.set(robot->getJointPosition());

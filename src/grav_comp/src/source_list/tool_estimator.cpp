@@ -42,15 +42,15 @@ namespace tool_est_
 
 ToolEstimator::ToolEstimator()
 {
-  this->mass = 0.0;
-  this->CoM = Eigen::Vector3d::Zero();
+  this->setMass(0.0);
+  this->setCoM(Eigen::Vector3d::Zero());
   gravity_vector_world = Eigen::Vector3d(0, 0, -GRAVITY_ACC);
 }
 
-ToolEstimator::ToolEstimator(const Vector3d& the_gravity_vector)
+ToolEstimator::ToolEstimator(const Vector3d &the_gravity_vector)
 {
-  this->mass = 0.0;
-  this->CoM = Eigen::Vector3d::Zero();
+  this->setMass(0.0);
+  this->setCoM(Eigen::Vector3d::Zero());
   gravity_vector_world = the_gravity_vector;
 }
 
@@ -69,22 +69,30 @@ void ToolEstimator::estimatePayload(const std::vector<Vector6d>& wrench_data, co
   int k = 0;
   for (unsigned int i = 0; i < n_data; i++)
   {
-    torque.segment(k, 3) = wrench_data[i].segment(3, 3);
+    torque.segment(k, 3) = wrench_data.at(i).segment(3, 3);
 
-    Eigen::Vector3d f = wrench_data[i].segment(0, 3);
-    Eigen::Vector3d f_world = quat_data[i].toRotationMatrix().transpose() * f;
+    Eigen::Vector3d f = wrench_data.at(i).segment(0, 3);
+    Eigen::Vector3d f_world = quat_data.at(i).toRotationMatrix() * f;
     fz_world(i) = f_world(2);
+
     minus_skew_force.block(k, 0, 3, 3) = -tool_est_::skewSymmetric(f);
+
+    // Vector3d gravity_vector_tool = quat_data.at(i).toRotationMatrix().transpose() * this->gravity_vector_world;
+    // minus_skew_force.block(k, 0, 3, 3) = -tool_est_::skewSymmetric(gravity_vector_tool);
 
     k+=3;
   }
 
   // Estimate mass
-  this->mass = fz_world.sum() / (n_data * this->gravity_vector_world(2));
+  double mass = fz_world.cwiseAbs().sum() / (n_data * std::fabs(this->gravity_vector_world(2)));
+  this->setMass(mass);
 
+  // minus_skew_force *= mass;
+  
   // Estimate center of mass with least squares for torques =  CoM x ( mass*gravity )
   // Use normal equations for least squares:
-  this->CoM = (minus_skew_force.transpose() * minus_skew_force).inverse() * minus_skew_force.transpose() * torque;
+  Eigen::Vector3d CoM = (minus_skew_force.transpose() * minus_skew_force).inverse() * minus_skew_force.transpose() * torque;
+  this->setCoM(CoM);
   // this->CoM = skew.bdcSvd(ComputeThinU | ComputeThinV).solve(torque);  // This segfaults for some reason
 }
 
@@ -108,20 +116,22 @@ void ToolEstimator::estimatePayload(const std::vector<Vector6d>& wrench_data, co
 //   }
 //
 //   // Calculate mass with least squares for f = mg
-//   this->mass = (gravity_vector.transpose() * gravity_vector).inverse() * gravity_vector.transpose() * force;
+//   double mass = (gravity_vector.transpose() * gravity_vector).inverse() * gravity_vector.transpose() * force;
+//   this->setMass(mass);
 //
 //   // Calculate center of mass with least squares for torques =  CoM x ( mass*gravity )
 //   skew = - this->mass * skew;
 //   // Use normal equations for least squares:
-//   this->CoM = (skew.transpose() * skew).inverse() * skew.transpose() * torque;
+//   Eigen::Vector3d CoM = (skew.transpose() * skew).inverse() * skew.transpose() * torque;
 //   // this->CoM = skew.bdcSvd(ComputeThinU | ComputeThinV).solve(torque);  // This segfaults for some reason
+//   this->setCoM(CoM);
 // }
 
-Vector6d ToolEstimator::getGravityWrench(const Quaterniond& orientation) const
+Vector6d ToolEstimator::getToolWrench(const Quaterniond& orientation) const
 {
   Vector6d wrench;
-  Vector3d force = orientation.toRotationMatrix().transpose() * (this->gravity_vector_world * this->mass);
-  Vector3d torque = this->CoM.cross(force);
+  Vector3d force = orientation.toRotationMatrix().transpose() * (this->gravity_vector_world * this->getMass());
+  Vector3d torque = this->getCoM().cross(force);
   wrench << force, torque;
   return wrench;
 }

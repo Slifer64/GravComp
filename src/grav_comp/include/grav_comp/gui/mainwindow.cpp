@@ -17,7 +17,7 @@ MainWindow::MainWindow(const Robot *robot, GravComp *grav_comp, QWidget *parent)
   mode_name[IDLE] = "IDLE";
 
   //this->resize(400,350);
-  this->setWindowTitle("SE(3) DMP");
+  this->setWindowTitle("Tool dynamics estimation");
 
   //QToolBar *tool_bar = new QToolBar(this);
   //this->addToolBar(tool_bar);
@@ -53,7 +53,7 @@ MainWindow::MainWindow(const Robot *robot, GravComp *grav_comp, QWidget *parent)
   mode = FREEDRIVE;
   setMode(IDLE);
 
-  std::thread([this](){ this->grav_comp->checkRobot();}).detach();
+  // std::thread([this](){ this->grav_comp->checkRobot();}).detach();
 }
 
 MainWindow::~MainWindow()
@@ -329,12 +329,18 @@ void MainWindow::saveTriggered()
 
 void MainWindow::saveAsTriggered()
 {
-  QString save_as_data_path = QFileDialog::getSaveFileName(this, tr("Save Recorded Data"), default_data_path.c_str(), "Binary files (*.bin);;Text files (*.txt);;YAML files (*.yaml)");
+  QString save_as_data_path = QFileDialog::getSaveFileName(this, tr("Save Recorded Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)");
   if (save_as_data_path.isEmpty()) return;
 
   save_data_path = save_as_data_path.toStdString();
   save_data = true;
   updateGUIonSaveData();
+
+  std::thread([this]()
+  {
+    ExecResultMsg msg = this->grav_comp->saveCoMData(this->getSaveDataPath());
+    saveAckSignal(msg);
+  }).detach();
 }
 
 void MainWindow::saveAckSlot(const ExecResultMsg &msg)
@@ -360,7 +366,7 @@ void MainWindow::updateGUIonSaveData()
 
 void MainWindow::loadTriggered()
 {
-  load_data_path = QFileDialog::getOpenFileName(this, tr("Load CoM Data"), default_data_path.c_str(), "Binary files (*.bin);;Text files (*.txt);;YAML files (*.yaml)").toStdString();
+  load_data_path = QFileDialog::getOpenFileName(this, tr("Load CoM Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
   if (load_data_path.empty()) return;
 
   load_data = true;
@@ -557,7 +563,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
   load_data = false;
   save_data = false;
 
-  const_cast<Robot *>(robot)->setExternalStop(true);
+  std::thread([this](){ this->grav_comp->setMode(Robot::IDLE); }).detach();
+
   // update_gui_sem.notify(); // unlock possible waits...
   QMainWindow::closeEvent(event);
 }

@@ -9,6 +9,7 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QCloseEvent>
+#include <QComboBox>
 
 #include <vector>
 #include <cstring>
@@ -48,6 +49,9 @@ public slots:
     void launch();
     void stop();
 
+private slots:
+  void changeUnits(const QString &units);
+
 private:
 
     bool run;
@@ -60,9 +64,17 @@ private:
     std::vector<QSlider *> sliders;
     std::vector<QLineEdit *> values;
     std::vector<std::string> jnames;
+    QComboBox *units_combox;
+    QLabel *units_combox_label;
 
     int slider_max;
     int slider_min;
+
+    enum Units
+    {
+      DEGREES = 0,
+      RAD = 1
+    } units;
 
     std::function<arma::vec()> readJointsPosition;
 
@@ -74,6 +86,8 @@ private:
 
     double sliderPos2JointPos(int s_pos, int i) const;
     double jointPos2SliderPos(double j_pos, int i) const;
+
+    constexpr static long double pi = 3.14159265359;
 };
 
 #endif // VIEW_JOINT_POSITION_DIALOG_H

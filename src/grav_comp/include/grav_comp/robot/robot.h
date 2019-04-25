@@ -71,12 +71,10 @@ public:
 
   virtual std::vector<std::string> getJointNames() const = 0;
 
-  virtual void setExternalStop(bool set) = 0;
-
   virtual arma::vec getCompTaskWrench() const = 0;
 
   static arma::mat get5thOrder(double t, arma::vec p0, arma::vec pT, double totalTime);
-  
+
 protected:
 
   Eigen::Vector4d rotm2quat(Eigen::Matrix3d rotm) const;

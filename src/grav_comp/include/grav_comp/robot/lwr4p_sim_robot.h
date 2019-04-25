@@ -41,7 +41,7 @@ public:
 
     wrench = this->getTaskWrench();
     quat = this->getTaskOrientation();
-    Eigen::Vector6d tool_wrench = tool_estimator->getGravityWrench(Eigen::Quaterniond(quat(0),quat(1),quat(2),quat(3)));
+    Eigen::Vector6d tool_wrench = tool_estimator->getToolWrench(Eigen::Quaterniond(quat(0),quat(1),quat(2),quat(3)));
     wrench_map -= tool_wrench;
 
     return wrench;
@@ -70,14 +70,12 @@ public:
   { return ctr_cycle; }
 
   bool isOk() const
-  { return (is_ok && !ext_stop()); }
+  { return (is_ok); }
 
   void setJointsPosition(const arma::vec &jpos) { jpos_cmd.set(jpos); }
   void setJointsTorque(const arma::vec &jtorq) { jtorque_cmd.set(jtorq); }
   void setTaskVelocity(const arma::vec &vel) { cart_vel_cmd.set(vel); }
   bool setJointsTrajectory(const arma::vec &qT, double duration);
-
-  void setExternalStop(bool set) { ext_stop=set; }
 
   std::vector<std::string> getJointNames() const
   { return jnames; }
@@ -98,8 +96,6 @@ private:
 
   double ctr_cycle;
   bool is_ok;
-
-  MtxVar<bool> ext_stop;
 
   std::string err_msg;
 

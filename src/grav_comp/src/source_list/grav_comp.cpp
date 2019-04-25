@@ -85,6 +85,9 @@ ExecResultMsg GravComp::recPredefPoses()
     std::string pose_name = "pose" + (QString::number(++k)).toStdString();
     if (!nh.getParam(pose_name, pose)) break;
     poses.push_back(arma::vec(pose));
+
+    arma::vec p = arma::vec(pose);
+    std::cerr << pose_name << ": " << p.t() << "\n";
   }
 
   if (poses.size() == 0)
@@ -115,6 +118,7 @@ ExecResultMsg GravComp::recPredefPoses()
       robot->setJointsPosition(qref);
       robot->update(); // waits for the next tick
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(500)); // wait so that the robot is at rest and no movement intervene in the sensor's measurements
     // pose reached ...
     recordCurrentWrenchQuat(); // record wrench quat
   }
@@ -191,11 +195,12 @@ ExecResultMsg GravComp::calcCoM()
 
     tool_estimator.estimatePayload(Wrench_data, Quat_data);
 
-    mass = tool_estimator.mass;
+    mass = tool_estimator.getMass();
     CoM.resize(3);
-    CoM(0) = tool_estimator.CoM(0);
-    CoM(1) = tool_estimator.CoM(1);
-    CoM(2) = tool_estimator.CoM(2);
+    Eigen:: Vector3d est_CoM = tool_estimator.getCoM();
+    CoM(0) = est_CoM(0);
+    CoM(1) = est_CoM(1);
+    CoM(2) = est_CoM(2);
 
     std::ostringstream oss;
     oss << "mass: " << mass << "\n";
@@ -204,13 +209,14 @@ ExecResultMsg GravComp::calcCoM()
     bool is_nan = false;
     for (int i=0; i<CoM.size(); i++)
     {
-      if (isnan(CoM(i)))
+      if (std::isnan(CoM(i)))
       {
         is_nan = true;
         oss << "Warning: CoM(" << (QString::number(i)).toStdString() << ")=nan will be set to zero.\n";
-        tool_estimator.CoM(i) = CoM(i) = 0;
+        est_CoM(i) = CoM(i) = 0;
       }
     }
+    tool_estimator.setCoM(est_CoM);
 
     is_CoM_calculated = true;
 
@@ -355,6 +361,11 @@ ExecResultMsg GravComp::loadCoMData(const std::string &path)
     std::ostringstream oss;
     oss << "mass: " << mass << "\n";
     oss << "CoM: " << CoM.t() << "\n";
+
+    Eigen::Vector3d est_CoM;
+    est_CoM << CoM(0), CoM(1), CoM(2);
+    tool_estimator.setCoM(est_CoM);
+    tool_estimator.setMass(mass);
 
     msg.setType(ExecResultMsg::INFO);
     msg.setMsg("The CoM data were successfully loaded!\n\n" + oss.str());
