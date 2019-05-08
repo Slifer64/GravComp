@@ -88,7 +88,7 @@ void ToolEstimator::estimatePayload(const std::vector<Vector6d>& wrench_data, co
   this->setMass(mass);
 
   // minus_skew_force *= mass;
-  
+
   // Estimate center of mass with least squares for torques =  CoM x ( mass*gravity )
   // Use normal equations for least squares:
   Eigen::Vector3d CoM = (minus_skew_force.transpose() * minus_skew_force).inverse() * minus_skew_force.transpose() * torque;
