@@ -5,8 +5,11 @@
 #include <ros/package.h>
 
 #include <grav_comp/grav_comp.h>
+#include <io_lib/parser.h>
 
 #include <QDebug>
+
+using namespace as64_;
 
 MainWindow::MainWindow(const Robot *robot, GravComp *grav_comp, QWidget *parent): QMainWindow(parent)
 {
@@ -45,6 +48,8 @@ MainWindow::MainWindow(const Robot *robot, GravComp *grav_comp, QWidget *parent)
   rec_predef_poses = false;
   load_data = false;
   save_data = false;
+  load_wrenchOrient = false;
+  save_wrenchOrient = false;
   emergency_stop = false;
   is_running = true;
 
@@ -124,6 +129,17 @@ void MainWindow::updateGUIonModeChanged()
 
 void MainWindow::createActions()
 {
+  load_predef_poses_act = new QAction(tr("Load predefined poses"), this);
+  load_predef_poses_act->setStatusTip(tr("Loads predefined poses from a path specified by the user."));
+
+  load_wrenchOrient_act = new QAction(tr("&Load wrench-orient data..."), this);
+  load_wrenchOrient_act->setShortcut(QKeySequence("Ctrl+D+L"));
+  load_wrenchOrient_act->setStatusTip(tr("Loads the wrench-orient data from the file the user specifies."));
+
+  save_wrenchOrient_act = new QAction(tr("&Save wrench-orient data..."), this);
+  save_wrenchOrient_act->setShortcut(QKeySequence("Ctrl+D+S"));
+  save_wrenchOrient_act->setStatusTip(tr("Saves the recorded wrench-orient data to the file specified by the user."));
+
   load_CoM_act = new QAction(tr("&Load CoM data..."), this);
   load_CoM_act->setShortcut(QKeySequence("Ctrl+L"));
   load_CoM_act->setStatusTip(tr("Loads the CoM data from the file the user specifies."));
@@ -135,6 +151,10 @@ void MainWindow::createActions()
   save_as_act = new QAction(tr("Save CoM data as..."), this);
   save_as_act->setShortcut(QKeySequence("Shift+Ctrl+S"));
   save_as_act->setStatusTip(tr("Saves the CoM data to a user specified path."));
+
+
+  set_predef_poses_act = new QAction(tr("Set predefined poses"), this);
+  set_predef_poses_act->setStatusTip(tr("Opens a dialog where you can insert/remove poses at which to record wrench-orient."));
 
   view_wrench_act = new QAction(tr("View wrench"), this);
   view_wrench_act->setStatusTip(tr("Opens a window displaying the compensated tool wrench."));
@@ -148,10 +168,19 @@ void MainWindow::createActions()
 
 void MainWindow::createConnections()
 {
+
+
+  QObject::connect( load_predef_poses_act, &QAction::triggered, this, &MainWindow::loadPredefPosesTriggered );
+
+  QObject::connect( load_wrenchOrient_act, &QAction::triggered, this, &MainWindow::loadWrenchOrientTriggered );
+  QObject::connect( save_wrenchOrient_act, &QAction::triggered, this, &MainWindow::saveWrenchOrientTriggered );
+
   QObject::connect( load_CoM_act, &QAction::triggered, this, &MainWindow::loadTriggered );
 
   QObject::connect( save_act, &QAction::triggered, this, &MainWindow::saveTriggered );
   QObject::connect( save_as_act, &QAction::triggered, this, &MainWindow::saveAsTriggered );
+
+  QObject::connect( set_predef_poses_act, &QAction::triggered, [this](){ this->set_poses_dialog->launch(); } );
 
   QObject::connect( view_wrench_act, &QAction::triggered, [this](){ this->view_wrench_dialog->launch(); } );
 
@@ -178,6 +207,8 @@ void MainWindow::createConnections()
   QObject::connect( this, &MainWindow::clearWrenchQuatDataAckSignal, this, &MainWindow::clearWrenchQuatDataAckSlot );
   QObject::connect( this, &MainWindow::loadAckSignal, this, &MainWindow::loadAckSlot );
   QObject::connect( this, &MainWindow::saveAckSignal, this, &MainWindow::saveAckSlot );
+  QObject::connect( this, &MainWindow::loadWrenchOrientAckSignal, this, &MainWindow::loadWrenchOrientAckSlot );
+  QObject::connect( this, &MainWindow::saveWrenchOrientAckSignal, this, &MainWindow::saveWrenchOrientAckSlot );
   QObject::connect( this, &MainWindow::recWrenchQuatAckSignal, this, &MainWindow::recWrenchQuatAckSlot );
   QObject::connect( this, &MainWindow::recPredefPosesAckSignal, this, &MainWindow::recPredefPosesAckSlot );
 }
@@ -190,11 +221,15 @@ void MainWindow::createMenus()
 
   file_menu = menu_bar->addMenu(tr("&File"));
   file_menu->addAction(load_CoM_act);
+  file_menu->addAction(load_wrenchOrient_act);
+  file_menu->addAction(load_predef_poses_act);
   file_menu->addSeparator();
   file_menu->addAction(save_act);
   file_menu->addAction(save_as_act);
+  file_menu->addAction(save_wrenchOrient_act);
 
   edit_menu = menu_bar->addMenu(tr("&Edit"));
+  edit_menu->addAction(set_predef_poses_act);
 
   view_menu = menu_bar->addMenu(tr("&View"));
   view_menu->addAction(view_pose_act);
@@ -212,6 +247,7 @@ void MainWindow::createWidgets()
   view_pose_dialog = new ViewPoseDialog(std::bind(&Robot::getTaskPosition, robot), std::bind(&Robot::getTaskOrientation, robot), this);
   view_jpos_dialog = new ViewJPosDialog(robot->getJointsLowerLimits(), robot->getJointsUpperLimits(), std::bind(&Robot::getJointsPosition, robot), this);
   view_jpos_dialog->setJointNames(robot->getJointNames());
+  set_poses_dialog = new SetPosesDialog(robot->getNumOfJoints(), this);
 
   mode_label = new QLabel;
   mode_label->setText("Robot mode");
@@ -310,7 +346,7 @@ void MainWindow::emergencyStopAckSlot()
   showInfoMsg("The robot stopped!\n");
 }
 
-// ========================     SAVE    ==================================
+// ========================     SAVE mass-CoM   ==================================
 
 void MainWindow::saveTriggered()
 {
@@ -329,7 +365,7 @@ void MainWindow::saveTriggered()
 
 void MainWindow::saveAsTriggered()
 {
-  QString save_as_data_path = QFileDialog::getSaveFileName(this, tr("Save Recorded Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)");
+  QString save_as_data_path = QFileDialog::getSaveFileName(this, tr("Save mass-CoM Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)");
   if (save_as_data_path.isEmpty()) return;
 
   save_data_path = save_as_data_path.toStdString();
@@ -362,7 +398,7 @@ void MainWindow::updateGUIonSaveData()
   calc_CoM_btn->setEnabled(set);
 }
 
-// ========================     LOAD    ==================================
+// ========================     LOAD mass-CoM    ==================================
 
 void MainWindow::loadTriggered()
 {
@@ -397,6 +433,133 @@ void MainWindow::updateGUIonLoadData()
 
   calc_CoM_btn->setEnabled(set);
 }
+
+// ========================     LOAD predef poses    ==================================
+
+void MainWindow::loadPredefPosesTriggered()
+{
+  std::string path = QFileDialog::getOpenFileName(this, tr("Load poses"), default_data_path.c_str(), "YAML files (*.yaml)").toStdString();
+  if (path.empty()) return;
+
+  ExecResultMsg msg;
+
+  // ========  check file format  =========
+  std::string suffix;
+  FileFormat file_fmt = getFileFormat(path, &suffix);
+
+  if (file_fmt != FileFormat::YAML)
+  {
+    msg.setType(ExecResultMsg::ERROR);
+    msg.setMsg("Only \"yaml\" or \"yml\" format is allowed!\n");
+    showMsg(msg);
+    return;
+  }
+
+  // ========  open file  =========
+  std::shared_ptr<io_::Parser> parser;
+  try {
+    parser.reset(new io_::Parser(path));
+  }
+  catch(std::exception &e)
+  {
+    msg.setType(ExecResultMsg::ERROR);
+    msg.setMsg("Failed to open file \"" + path + "\".");
+    showMsg(msg);
+  }
+
+  // ========  read poses  =========
+  std::vector<arma::vec> &poses = set_poses_dialog->poses;
+  poses.clear();
+
+  std::vector<double> pose;
+  int k = 0;
+  while (true)
+  {
+    std::string pose_name = "pose" + (QString::number(++k)).toStdString();
+    if (! parser->getParam(pose_name, pose)) break;
+    poses.push_back(arma::vec(pose));
+  }
+
+  // ========  fill in return message  =========
+  std::ostringstream oss;
+  oss << "Number of loaded poses = " << poses.size() << "\n";
+
+  msg.setType(ExecResultMsg::INFO);
+  msg.setMsg("Poses successfully loaded!\n\n" + oss.str());
+  showMsg(msg);
+}
+
+// ========================     LOAD wrench-orient data    ==================================
+
+void MainWindow::loadWrenchOrientTriggered()
+{
+  std::string path = QFileDialog::getOpenFileName(this, tr("Load wrench-orient Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
+  if (path.empty()) return;
+
+  load_wrenchOrient = true;
+  updateGUIonLoadWrenchOrient();
+
+  std::thread([this,path]()
+  {
+    ExecResultMsg msg = this->grav_comp->loadWrenchOrientData(path);
+    loadWrenchOrientAckSignal(msg);
+  }).detach();
+}
+
+void MainWindow::loadWrenchOrientAckSlot(const ExecResultMsg &msg)
+{
+  load_wrenchOrient = false;
+  showMsg(msg);
+  updateGUIonLoadWrenchOrient();
+}
+
+void MainWindow::updateGUIonLoadWrenchOrient()
+{
+  bool set = !load_wrenchOrient();
+
+  rec_predef_poses_btn->setEnabled(set);
+  rec_wrenchQuat_btn->setEnabled(set);
+  load_wrenchOrient_act->setEnabled(set);
+  save_wrenchOrient_act->setEnabled(set);
+
+  calc_CoM_btn->setEnabled(set);
+}
+
+// ========================     SAVE wrench-orient data    ==================================
+
+void MainWindow::saveWrenchOrientTriggered()
+{
+  std::string path = QFileDialog::getSaveFileName(this, tr("Save Recorded wrench-orient data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
+  if (path.empty()) return;
+
+  save_wrenchOrient = true;
+  updateGUIonSaveWrenchOrient();
+
+  std::thread([this,path]()
+  {
+    ExecResultMsg msg = this->grav_comp->saveWrenchOrientData(path);
+    saveWrenchOrientAckSignal(msg);
+  }).detach();
+}
+
+void MainWindow::saveWrenchOrientAckSlot(const ExecResultMsg &msg)
+{
+  save_wrenchOrient = false;
+  showMsg(msg);
+  updateGUIonSaveWrenchOrient();
+}
+
+void MainWindow::updateGUIonSaveWrenchOrient()
+{
+  bool set = !save_wrenchOrient();
+
+  rec_predef_poses_btn->setEnabled(set);
+  rec_wrenchQuat_btn->setEnabled(set);
+  load_wrenchOrient_act->setEnabled(set);
+  save_wrenchOrient_act->setEnabled(set);
+  clear_wrenchQuat_btn->setEnabled(set);
+}
+
 
 // =====================   CALC mass-CoM   ================================
 
@@ -533,6 +696,7 @@ void MainWindow::updateGUIonRecPredefPoses()
   clear_wrenchQuat_btn->setEnabled(set);
   rec_wrenchQuat_btn->setEnabled(set);
   rec_predef_poses_btn->setEnabled(set);
+  set_predef_poses_act->setEnabled(set);
 
   freedrive_btn->setEnabled(set);
   idle_btn->setEnabled(set);

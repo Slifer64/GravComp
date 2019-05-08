@@ -22,6 +22,16 @@ void PRINT_CONFIRM_MSG(const std::string &msg, std::ostream &out = std::cout);
 void PRINT_WARNING_MSG(const std::string &msg, std::ostream &out = std::cout);
 void PRINT_ERROR_MSG(const std::string &msg, std::ostream &out = std::cout);
 
+enum FileFormat
+{
+  UNKNOWN = -1,
+  BIN = 0,
+  TXT = 1,
+  YAML = 2
+};
+
+FileFormat getFileFormat(const std::string &file_name, std::string *suffix_ptr=0);
+
 class ExecResultMsg
 {
 public:

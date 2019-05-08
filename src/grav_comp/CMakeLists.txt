@@ -51,6 +51,7 @@ set(SRC_LIST
   include/${PROJECT_NAME}/gui/view_jpos_dialog.cpp
   include/${PROJECT_NAME}/gui/view_pose_dialog.cpp
   include/${PROJECT_NAME}/gui/view_wrench_dialog.cpp
+  include/${PROJECT_NAME}/gui/set_poses_dialog.cpp
 
   src/source_list/grav_comp.cpp
   src/source_list/utils.cpp

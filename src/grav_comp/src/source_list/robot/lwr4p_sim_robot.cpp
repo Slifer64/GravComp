@@ -116,6 +116,11 @@ void LWR4p_Sim_Robot::commandThread()
     task_wrench = 4*(2*arma::vec().randu(6)-1);
     jpos = jpos_upper_lim%(2*arma::vec().randu(N_JOINTS)-1)*3.14159/180;
 
+    task_pos = 1.2*arma::vec().randu(3);
+    task_orient = arma::vec().randu(4);
+    task_orient = task_orient / arma::norm(task_orient);
+
+
     // sync with KRC
     waitNextCycle();
     KRC_tick.notify();

@@ -33,6 +33,8 @@ protected:
   ExecResultMsg calcCoM();
   ExecResultMsg loadCoMData(const std::string &path);
   ExecResultMsg saveCoMData(const std::string &save_path);
+  ExecResultMsg loadWrenchOrientData(const std::string &path);
+  ExecResultMsg saveWrenchOrientData(const std::string &path);
 
   void checkRobot();
   void setMode(Robot::Mode mode);
@@ -47,7 +49,6 @@ protected:
 
   std::vector<Eigen::Vector6d> Wrench_data;
   std::vector<Eigen::Quaterniond> Quat_data;
-  std::vector<arma::vec> poses;
   arma::vec CoM;
   double mass;
   ToolEstimator tool_estimator;

@@ -14,6 +14,7 @@
 #include <grav_comp/robot/lwr4p_sim_robot.h>
 
 #include <io_lib/io_utils.h>
+#include <io_lib/parser.h>
 
 using namespace as64_;
 
@@ -75,20 +76,20 @@ ExecResultMsg GravComp::recPredefPoses()
 {
   ExecResultMsg msg;
 
-  // =====  read poses  =====
-  poses.clear();
-  ros::NodeHandle nh("~");
-  std::vector<double> pose;
-  int k = 0;
-  while (true)
-  {
-    std::string pose_name = "pose" + (QString::number(++k)).toStdString();
-    if (!nh.getParam(pose_name, pose)) break;
-    poses.push_back(arma::vec(pose));
+//  // =====  read poses  =====
+//  poses.clear();
+//  std::string path = ros::package::getPath(PACKAGE_NAME) + "/config/predef_poses.yaml";
+//  io_::Parser parser(path);
+//  std::vector<double> pose;
+//  int k = 0;
+//  while (true)
+//  {
+//    std::string pose_name = "pose" + (QString::number(++k)).toStdString();
+//    if (!parser.getParam(pose_name, pose)) break;
+//    poses.push_back(arma::vec(pose));
+//  }
 
-    arma::vec p = arma::vec(pose);
-    std::cerr << pose_name << ": " << p.t() << "\n";
-  }
+  std::vector<arma::vec> poses = gui->getPredefPoses();
 
   if (poses.size() == 0)
   {
@@ -100,7 +101,7 @@ ExecResultMsg GravComp::recPredefPoses()
   // =====  Move to each pose and record wrench-quat  =====
   Robot::Mode prev_mode = robot->getMode(); // store current robot mode
   robot->setMode(Robot::JOINT_POS_CONTROL);
-  for (k=0; k<poses.size(); k++)
+  for (int k=0; k<poses.size(); k++)
   {
     robot->update(); // waits for the next tick
     arma::vec q0 = robot->getJointsPosition();
@@ -245,17 +246,10 @@ ExecResultMsg GravComp::saveCoMData(const std::string &save_path)
     return msg;
   }
 
-  std::string suffix = "";
-  int n = save_path.size();
-  int i = n-1;
-  for (; i>-1 && save_path[i]!='.'; i--);
-  if (i<n-1) suffix = save_path.substr(i+1);
+  std::string suffix;
+  FileFormat file_fmt = getFileFormat(save_path, &suffix);
 
-  int k;
-  if (suffix.compare("bin")==0) k = 0;
-  else if (suffix.compare("txt")==0) k = 1;
-  else if (suffix.compare("yaml")==0 || suffix.compare("yml")==0) k = 2;
-  else
+  if (file_fmt == FileFormat::UNKNOWN)
   {
     msg.setType(ExecResultMsg::ERROR);
     msg.setMsg("Unknown file format \"" + suffix + "\"...\n");
@@ -263,7 +257,7 @@ ExecResultMsg GravComp::saveCoMData(const std::string &save_path)
   }
 
   std::ofstream out;
-  if (k==0) out.open(save_path.c_str(), std::ios::out|std::ios::binary);
+  if (file_fmt == FileFormat::BIN) out.open(save_path.c_str(), std::ios::out|std::ios::binary);
   else out.open(save_path.c_str(), std::ios::out);
 
   if (!out)
@@ -275,17 +269,17 @@ ExecResultMsg GravComp::saveCoMData(const std::string &save_path)
 
   try
   {
-    if (k==0)
+    if (file_fmt == FileFormat::BIN)
     {
       io_::write_scalar(static_cast<double>(mass), out, true);
       io_::write_mat(CoM, out, true);
     }
-    else if (k==1)
+    else if (file_fmt == FileFormat::TXT)
     {
       out << "mass: " << mass << "\n";
       out << "CoM: " << CoM(0) << " , " << CoM(1) << " , " << CoM(2) << "\n";
     }
-    else if (k==2)
+    else if (file_fmt == FileFormat::YAML)
     {
       out << "mass: " << mass << "\n";
       out << "CoM: [ " << CoM(0) << " , " << CoM(1) << " , " << CoM(2) << " ]\n";
@@ -309,17 +303,10 @@ ExecResultMsg GravComp::loadCoMData(const std::string &path)
 {
   ExecResultMsg msg;
 
-  std::string suffix = "";
-  int n = path.size();
-  int i = n-1;
-  for (; i>-1 && path[i]!='.'; i--);
-  if (i<n-1) suffix = path.substr(i+1);
+  std::string suffix;
+  FileFormat file_fmt = getFileFormat(path, &suffix);
 
-  int k;
-  if (suffix.compare("bin")==0) k = 0;
-  else if (suffix.compare("txt")==0) k = 1;
-  else if (suffix.compare("yaml")==0 || suffix.compare("yml")==0) k = 2;
-  else
+  if (file_fmt == FileFormat::UNKNOWN)
   {
     msg.setType(ExecResultMsg::ERROR);
     msg.setMsg("Unknown file format \"" + suffix + "\"...\n");
@@ -327,7 +314,7 @@ ExecResultMsg GravComp::loadCoMData(const std::string &path)
   }
 
   std::ifstream in;
-  if (k==0) in.open(path.c_str(), std::ios::in|std::ios::binary);
+  if (file_fmt == FileFormat::BIN) in.open(path.c_str(), std::ios::in|std::ios::binary);
   else in.open(path.c_str(), std::ios::in);
   if (!in)
   {
@@ -340,17 +327,17 @@ ExecResultMsg GravComp::loadCoMData(const std::string &path)
 
   try
   {
-    if (k==0)
+    if (file_fmt == FileFormat::BIN)
     {
       io_::read_scalar(mass, in, true);
       io_::read_mat(CoM, in, true);
     }
-    else if (k==1)
+    else if (file_fmt == FileFormat::TXT)
     {
       std::string temp;
       in >> temp >> mass >> temp >> CoM(0) >> temp >> CoM(1) >> temp >> CoM(2);
     }
-    else if (k==2)
+    else if (file_fmt == FileFormat::YAML)
     {
       std::string temp;
       in >> temp >> mass >> temp >> temp >> CoM(0) >> temp >> CoM(1) >> temp >> CoM(2);
@@ -375,7 +362,225 @@ ExecResultMsg GravComp::loadCoMData(const std::string &path)
   {
     in.close();
     msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Error reading CoM data!\nMaybe the file is corrupted...");
+    msg.setMsg("Error reading CoM data!\nThe file may be corrupted...");
+    return msg;
+  }
+}
+
+ExecResultMsg GravComp::saveWrenchOrientData(const std::string &path)
+{
+  ExecResultMsg msg;
+
+  if (Wrench_data.size() == 0)
+  {
+    msg.setType(ExecResultMsg::ERROR);
+    msg.setMsg("No data are recorded!");
+    return msg;
+  }
+
+  std::string suffix;
+  FileFormat file_fmt = getFileFormat(path, &suffix);
+
+  if (file_fmt == FileFormat::UNKNOWN)
+  {
+    msg.setType(ExecResultMsg::ERROR);
+    msg.setMsg("Unknown file format \"" + suffix + "\"...\n");
+    return msg;
+  }
+
+  std::ofstream out;
+  if (file_fmt == FileFormat::BIN) out.open(path.c_str(), std::ios::out|std::ios::binary);
+  else out.open(path.c_str(), std::ios::out);
+
+  if (!out)
+  {
+    msg.setType(ExecResultMsg::ERROR);
+    msg.setMsg("Failed to create file \"" + path + "\".");
+    return msg;
+  }
+
+  int N_data = Wrench_data.size();
+  int wrench_size = Wrench_data[0].size();
+  int orient_size = 4;
+  arma::mat wrench(wrench_size, N_data);
+  arma::mat quat(orient_size,N_data);
+
+  for (int j=0; j<N_data; j++)
+  {
+    for (int i=0; i<wrench_size; i++) wrench(i,j) = Wrench_data[j](i);
+    quat.col(j) = arma::vec({Quat_data[j].w(), Quat_data[j].x(), Quat_data[j].y(), Quat_data[j].z()});
+  }
+
+  try
+  {
+    if (file_fmt == FileFormat::BIN)
+    {
+      io_::write_mat(wrench, out, true);
+      io_::write_mat(quat, out, true);
+    }
+    else if (file_fmt == FileFormat::TXT)
+    {
+      std::ostringstream oss;
+      oss << "N: " << N_data << "\n";
+      oss << "Wrench:\n";
+      oss << wrench << "\n";
+      oss << "Quaternion:\n";
+      oss << quat << "\n";
+      out << oss.str();
+    }
+    else if (file_fmt == FileFormat::YAML)
+    {
+      std::ostringstream oss;
+      oss << "N: " << N_data << "\n";
+      oss << "wrench: [";
+      for (int i=0; i<wrench.n_rows; i++)
+      {
+        for (int j=0; j<wrench.n_cols-1; j++) oss << wrench(i,j) << ", ";
+        oss << wrench(i, wrench.n_cols-1);
+        if (i<wrench.n_rows-1) oss << "; ";
+      }
+      oss << "]\n";
+      oss << "quaternion: [";
+      for (int i=0; i<quat.n_rows; i++)
+      {
+        for (int j=0; j<quat.n_cols-1; j++) oss << quat(i,j) << ", ";
+        oss << quat(i, quat.n_cols-1);
+        if (i<quat.n_rows-1) oss << "; ";
+      }
+      oss << "]\n";
+      out << oss.str();
+    }
+    out.close();
+
+    msg.setType(ExecResultMsg::INFO);
+    msg.setMsg("The wrench-orient data were successfully saved!");
+    return msg;
+  }
+  catch (std::exception &e)
+  {
+    msg.setType(ExecResultMsg::ERROR);
+    msg.setMsg(std::string("Error writing data:\n") + e.what());
+    return msg;
+  }
+}
+
+ExecResultMsg GravComp::loadWrenchOrientData(const std::string &path)
+{
+  ExecResultMsg msg;
+
+  std::string suffix;
+  FileFormat file_fmt = getFileFormat(path, &suffix);
+
+  if (file_fmt == FileFormat::UNKNOWN)
+  {
+    msg.setType(ExecResultMsg::ERROR);
+    msg.setMsg("Unknown file format \"" + suffix + "\"...\n");
+    return msg;
+  }
+
+  std::ifstream in;
+  if (file_fmt==FileFormat::BIN) in.open(path.c_str(), std::ios::in|std::ios::binary);
+  else in.open(path.c_str(), std::ios::in);
+  if (!in)
+  {
+    msg.setType(ExecResultMsg::ERROR);
+    msg.setMsg("Failed to open file \"" + path + "\".");
+    return msg;
+  }
+
+  arma::mat wrench;
+  arma::mat quat;
+
+  int wrench_size = 6;
+  int orient_size = 4;
+
+  try
+  {
+    if (file_fmt==FileFormat::BIN)
+    {
+      io_::read_mat(wrench, in, true);
+      io_::read_mat(quat, in, true);
+    }
+    else if (file_fmt==FileFormat::TXT)
+    {
+      std::stringstream iss;
+      iss << in.rdbuf();
+      std::string label;
+      int N_data;
+      iss >> label >>  N_data;
+
+      wrench.resize(wrench_size, N_data);
+      iss >> label; // Wrench label
+      for (int i=0; i<wrench_size; i++)
+      {
+        for (int j = 0; j < N_data; j++)
+        {
+          double f;
+          iss >> f;
+          wrench(i,j) = f;
+        }
+      }
+      quat.resize(orient_size, N_data);
+      iss >> label; // Quat label
+      for (int i=0; i<orient_size; i++)
+      {
+        for (int j = 0; j < N_data; j++)
+        {
+          double f;
+          iss >> f;
+          quat(i,j) = f;
+        }
+      }
+    }
+    else if (file_fmt==FileFormat::YAML)
+    {
+      io_::Parser parser(path);
+
+      int N_data;
+      if (!parser.getParam("N",N_data))
+      {
+        msg.setType(ExecResultMsg::ERROR);
+        msg.setMsg("Failed to read parameter \"N\".");
+        return msg;
+      }
+
+      if (!parser.getParam("wrench",wrench))
+      {
+        msg.setType(ExecResultMsg::ERROR);
+        msg.setMsg("Failed to read parameter \"wrench\".");
+        return msg;
+      }
+
+      if (!parser.getParam("quaternion",quat))
+      {
+        msg.setType(ExecResultMsg::ERROR);
+        msg.setMsg("Failed to read parameter \"quaternion\".");
+        return msg;
+      }
+    }
+    in.close();
+
+    int N_data = wrench.n_cols;
+    Wrench_data.resize(N_data);
+    Quat_data.resize(N_data);
+    for (int j=0; j<N_data; j++)
+    {
+      for (int i=0; i<6; i++) Wrench_data[j](i) = wrench(i,j);
+      Quat_data[j] = Eigen::Quaterniond(quat(0,j), quat(1,j), quat(2,j), quat(3,j) );
+    }
+
+    std::ostringstream oss;
+    oss << "Number of measurements = " << N_data << "\n";
+
+    msg.setType(ExecResultMsg::INFO);
+    msg.setMsg("The wrench-orient data were successfully loaded!\n\n" + oss.str());
+    return msg;
+  }
+  catch (std::exception &e)
+  {
+    in.close();
+    msg.setType(ExecResultMsg::ERROR);
+    msg.setMsg("Error reading data!\nThe file may be corrupted...");
     return msg;
   }
 }

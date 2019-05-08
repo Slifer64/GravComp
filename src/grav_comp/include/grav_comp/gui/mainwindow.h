@@ -23,6 +23,7 @@
 #include "view_pose_dialog.h"
 #include "view_jpos_dialog.h"
 #include "view_wrench_dialog.h"
+#include "set_poses_dialog.h"
 #include <grav_comp/utils.h>
 #include <grav_comp/robot/robot.h>
 
@@ -55,18 +56,25 @@ public:
     std::string getLoadDataPath() const { return load_data_path; }
     std::string getSaveDataPath() const { return save_data_path; }
 
+    std::vector<arma::vec> getPredefPoses() const { return set_poses_dialog->poses; }
+
 signals:
     void robotNotOkSignal(const QString &msg);
     void modeChangedSignal();
     void emergencyStopAckSignal();
     void loadAckSignal(const ExecResultMsg &msg);
     void saveAckSignal(const ExecResultMsg &msg);
+    void loadWrenchOrientAckSignal(const ExecResultMsg &msg);
+    void saveWrenchOrientAckSignal(const ExecResultMsg &msg);
     void calcCoMAckSignal(const ExecResultMsg &msg);
     void clearWrenchQuatDataAckSignal(const ExecResultMsg &msg);
     void recWrenchQuatAckSignal(const ExecResultMsg &msg);
     void recPredefPosesAckSignal(const ExecResultMsg &msg);
 
 private slots:
+    void loadPredefPosesTriggered();
+    void loadWrenchOrientTriggered();
+    void saveWrenchOrientTriggered();
     void loadTriggered();
     void saveTriggered();
     void saveAsTriggered();
@@ -76,6 +84,8 @@ private slots:
     void recPredefPosesPressed();
     void emergencyStopPressed();
 
+    void loadWrenchOrientAckSlot(const ExecResultMsg &msg);
+    void saveWrenchOrientAckSlot(const ExecResultMsg &msg);
     void loadAckSlot(const ExecResultMsg &msg);
     void saveAckSlot(const ExecResultMsg &msg);
     void recWrenchQuatAckSlot(const ExecResultMsg &msg);
@@ -99,6 +109,9 @@ private:
     MtxVar<bool> rec_predef_poses; ///< Flag that becomes true when recording of data from predefined poses is triggered and is reseted to false when the recording is done.
     MtxVar<bool> load_data; ///< Flag that becomes true when loading of mass-CoM is triggered and is reseted to false when the loading is done.
     MtxVar<bool> save_data; ///< Flag that becomes true when saving of mass-CoM is triggered and is reseted to false when the saving is done.
+    MtxVar<bool> load_wrenchOrient; ///< Flag that becomes true when loading of wrench-orient data is triggered and is reseted to false when the loading is done.
+    MtxVar<bool> save_wrenchOrient; ///< Flag that becomes true when saving of wrench-orient data is triggered and is reseted to false when the saving is done.
+
     MtxVar<bool> emergency_stop;
 
     std::string default_data_path; ///< Default path were every load/save dialog that opens points to initially.
@@ -110,6 +123,7 @@ private:
     ViewPoseDialog *view_pose_dialog; ///< Pointer to QDialog object for displaying the robot tool pose.
     ViewJPosDialog *view_jpos_dialog; ///< Pointer to QDialog object for displaying the robot's joint angles.
     ViewWrenchDialog *view_wrench_dialog; ///< Pointer to QDialog object for displaying the robot's tool wrench.
+    SetPosesDialog *set_poses_dialog; ///< Pointer to QDialog object for setting predefined poses for recording wrench-orient.
 
     // ======  menus  ========
     QMenuBar *menu_bar; ///< Menu Bar.
@@ -118,12 +132,16 @@ private:
     QMenu *view_menu; ///< View Menu.
 
     // ======  actions  ========
+    QAction *load_predef_poses_act; ///< Triggers a QAction connected with the loading of predefined poses.
+    QAction *load_wrenchOrient_act; ///< Triggers a QAction connected with the execution of the wrench-orient data load.
+    QAction *save_wrenchOrient_act; ///< Triggers a QAction connected with the execution of the wrench-orient data save.
     QAction *load_CoM_act; ///< Triggers a QAction connected with the execution of the mass-CoM load.
     QAction *save_act; ///< Triggers a QAction connected with the execution of the mass-CoM save.
     QAction *save_as_act; ///< Triggers a QAction connected with the execution of the mass-CoM save as.
     QAction *view_pose_act; ///< Triggers a QAction connected with the launch of 'view_pose_dialog'.
     QAction *view_joints_act; ///< Triggers a QAction connected with the launch of 'view_jpos_dialog'.
     QAction *view_wrench_act; ///< Triggers a QAction connected with the launch of 'view_wrench_dialog'.
+    QAction *set_predef_poses_act; ///< Triggers a QAction connected with the launch of 'set_predef_poses_dialog'.
 
     // ======  widgets  ========
     QWidget *central_widget;
@@ -173,6 +191,8 @@ private:
     void updateGUIonClearWrenchQuatData();
     void updateGUIonLoadData();
     void updateGUIonSaveData();
+    void updateGUIonLoadWrenchOrient();
+    void updateGUIonSaveWrenchOrient();
 
     /** Overrides the close event. */
     void closeEvent(QCloseEvent *event) override;
