@@ -80,4 +80,5 @@ target_link_libraries(${PROJECT_NAME}
   lwr4p
   ati_sensor
   ${Qt_LIBRARIES}
+  pthread
 )

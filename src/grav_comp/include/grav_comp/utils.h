@@ -105,6 +105,7 @@ public:
   MtxVar& operator=(const T &val) { set(val); return *this; }
   bool operator()() const { return get(); }
   T get() const { std::unique_lock<std::mutex> lck(*(const_cast<std::mutex *>(&var_mtx))); return var; }
+  T read() const { return var; }
   void set(const T &val) { std::unique_lock<std::mutex> lck(var_mtx); var=val; }
 private:
   std::mutex var_mtx;

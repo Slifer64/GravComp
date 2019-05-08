@@ -40,59 +40,32 @@ namespace lwr4p
 
   void Robot::setMode(lwr4p::Mode mode)
   {
+    if (this->mode == mode) return;
+
+    stopController();
+
     switch (mode)
     {
-      case lwr4p::Mode::STOPPED :
-        if (this->mode != lwr4p::Mode::STOPPED)
-        {
-          stopController();
-        }
+      case lwr4p::Mode::STOPPED:
+        saveLastJointPosition();
+        this->mode = lwr4p::Mode::STOPPED;
+        break;
+      case lwr4p::Mode::POSITION_CONTROL:
+        startJointPositionController();
         saveLastJointPosition();
         break;
-      case lwr4p::Mode::POSITION_CONTROL :
-        if (this->mode != lwr4p::Mode::POSITION_CONTROL)
-        {
-          if (this->mode != lwr4p::Mode::STOPPED)
-          {
-            stopController();
-          }
-          startJointPositionController();
-          saveLastJointPosition();
-        }
+      case lwr4p::Mode::VELOCITY_CONTROL:
+        if (this->mode != lwr4p::Mode::POSITION_CONTROL) startJointPositionController();
+        this->mode = lwr4p::Mode::VELOCITY_CONTROL;
+        saveLastJointPosition();
         break;
-      case lwr4p::Mode::VELOCITY_CONTROL :
-        if (this->mode != lwr4p::Mode::VELOCITY_CONTROL)
-        {
-          if (this->mode != lwr4p::Mode::POSITION_CONTROL)
-          {
-            stopController();
-            startJointPositionController();
-          }
-          this->mode = lwr4p::Mode::VELOCITY_CONTROL;
-          saveLastJointPosition();
-        }
+      case lwr4p::Mode::TORQUE_CONTROL:
+        startJointTorqueController();
+        saveLastJointPosition();
         break;
-      case lwr4p::Mode::TORQUE_CONTROL :
-        if (this->mode != lwr4p::Mode::TORQUE_CONTROL)
-        {
-          if (this->mode != lwr4p::Mode::STOPPED)
-          {
-            stopController();
-          }
-          startJointTorqueController();
-          saveLastJointPosition();
-        }
-        break;
-      case lwr4p::Mode::IMPEDANCE_CONTROL :
-        if (this->mode != lwr4p::Mode::IMPEDANCE_CONTROL)
-        {
-          if (this->mode != lwr4p::Mode::STOPPED)
-          {
-            stopController();
-          }
-          startCartImpController();
-          saveLastJointPosition();
-        }
+      case lwr4p::Mode::IMPEDANCE_CONTROL:
+        startCartImpController();
+        saveLastJointPosition();
         break;
       default: std::cout << "Mode " << mode << " Not available" << std::endl;
     }
@@ -231,7 +204,6 @@ namespace lwr4p
     FRI->WaitForKRCTick();
     std::cout << "[JointPosController::startController] Starting joint position control." << std::endl;
     int ResultValue = FRI->StartRobot(FastResearchInterface::JOINT_POSITION_CONTROL);
-    this->mode = lwr4p::Mode::POSITION_CONTROL;
     // if there s a problem
     if ((ResultValue != 0) && (ResultValue != EALREADY)) {
       std::cout << "[JointPosController::startController] "
@@ -239,6 +211,7 @@ namespace lwr4p
       stopController();
       return;
     }
+    this->mode = lwr4p::Mode::POSITION_CONTROL;
     std::cout << "[JointPosController::startController] " << "Finished" << std::endl;
   }
 
@@ -280,7 +253,7 @@ namespace lwr4p
     std::cout << "[KukaTorqueController::startController] Starting torque control." << std::endl;
     int ResultValue = FRI->StartRobot(FastResearchInterface::JOINT_IMPEDANCE_CONTROL);
     // if there s a problem
-    this->mode = lwr4p::Mode::TORQUE_CONTROL;
+
     if ((ResultValue != 0) && (ResultValue != EALREADY))
     {
       std::cout << "[KukaTorqueController::startController] "
@@ -288,6 +261,8 @@ namespace lwr4p
       stopController();
       return;
     }
+
+    this->mode = lwr4p::Mode::TORQUE_CONTROL;
 
     std::cout << "[KukaTorqueController::startController] " << "Finished" << std::endl;
   }
@@ -329,7 +304,7 @@ namespace lwr4p
     std::cout << "[KukaCartImpedanceController::startController] Starting Cartesian Impedance control." << std::endl;
     int ResultValue = FRI->StartRobot(FastResearchInterface::CART_IMPEDANCE_CONTROL);
     // if there is a problem
-    this->mode = lwr4p::Mode::IMPEDANCE_CONTROL;
+
     if ((ResultValue != 0) && (ResultValue != EALREADY))
     {
       std::cout << "[KukaCartImpedanceController::startController] "
@@ -337,6 +312,9 @@ namespace lwr4p
       stopController();
       return;
     }
+
+    this->mode = lwr4p::Mode::IMPEDANCE_CONTROL;
+
     std::cout << "[KukaCartImpedanceController::startController] " << "Finished" << std::endl;
   }
 

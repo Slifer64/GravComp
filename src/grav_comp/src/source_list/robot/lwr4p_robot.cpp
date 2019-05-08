@@ -2,6 +2,8 @@
 
 #include <ros/package.h>
 
+#include <pthread.h>
+
 arma::vec quatProd(const arma::vec &quat1, const arma::vec &quat2)
 {
   arma::vec quat12(4);
@@ -66,7 +68,7 @@ arma::vec quatInv(const arma::vec &quat)
 LWR4p_Robot::LWR4p_Robot(const ToolEstimator *tool_est):Robot(tool_est)
 {
   is_ok = true;
-  
+
   N_JOINTS = 7;
 
   jpos_low_lim = -arma::vec({170, 120, 170, 120, 170, 120, 170});
@@ -97,12 +99,44 @@ LWR4p_Robot::LWR4p_Robot(const ToolEstimator *tool_est):Robot(tool_est)
   cmd_mode.set(mode.get());
   jpos_cmd.set(robot->getJointPosition());
 
-  std::thread(&LWR4p_Robot::commandThread,this).detach();
+  launchRobotRTCtrlThread();
 }
 
 LWR4p_Robot::~LWR4p_Robot()
 {
 
+}
+
+void LWR4p_Robot::launchRobotRTCtrlThread()
+{
+  std::thread rt_run_thread = std::thread(&LWR4p_Robot::commandThread,this);
+  struct sched_param sch_param;
+  sch_param.sched_priority = 99;
+  int policy = SCHED_FIFO;
+  int ret = pthread_setschedparam(rt_run_thread.native_handle(), policy, &sch_param);
+
+  if (ret)
+  {
+    switch (ret)
+    {
+      std::cerr << "[LWR4p_Robot::launchRobotRTCtrlThread]:\n ********* ERROR setting commandThread to run in RT *********\n===> Reason:\n";
+      case ESRCH:
+        std::cerr << "No thread with the ID thread could be found.\n";
+        break;
+      case EINVAL:
+        std::cerr << "Policy is not a recognized policy, or param does not make sense for the policy.\n";
+        break;
+      case EPERM:
+        std::cerr << "The caller does not have appropriate privileges to set the specified scheduling policy and parameters.\n";
+        break;
+      case ENOTSUP:
+        std::cerr << "Attempt was made to set the policy or scheduling parameters to an unsupported value.\n";
+        break;
+      default:
+        std::cerr << "Unknown error coce: \"" << ret << "\"\n";
+    }
+  }
+  rt_run_thread.detach();
 }
 
 void LWR4p_Robot::setMode(const Robot::Mode &mode)
@@ -115,14 +149,16 @@ void LWR4p_Robot::setMode(const Robot::Mode &mode)
 
 void LWR4p_Robot::commandThread()
 {
+  unsigned long long count = 0;
+
   arma::mat J;
   arma::vec dq;
 
   while (isOk())
   {
-    Mode new_mode = cmd_mode.get();
+    Mode new_mode = cmd_mode.read();
     // check if we have to switch mode
-    if (new_mode != mode.get())
+    if (new_mode != mode.read())
     {
       switch (new_mode)
       {
@@ -143,6 +179,7 @@ void LWR4p_Robot::commandThread()
           cart_vel_cmd.set(arma::vec().zeros(6));
           break;
         case IDLE:
+          std::cerr << "===>> Setting MODE to: IDLE\n";
           robot->setMode(lwr4p::Mode::POSITION_CONTROL);
           jpos_cmd.set(robot->getJointPosition());
           break;
@@ -160,9 +197,10 @@ void LWR4p_Robot::commandThread()
     }
 
     // send command according to current mode
-    switch (mode.get())
+    switch (mode.read())
     {
       case JOINT_POS_CONTROL:
+        std::cerr << "***  MODE: JOINT_POS_CONTROL ***\n";
         robot->setJointPosition(jpos_cmd.get());
         break;
       case JOINT_TORQUE_CONTROL:
@@ -179,9 +217,15 @@ void LWR4p_Robot::commandThread()
         robot->setJointTorque(jtorque_cmd.get());
         break;
       case Robot::Mode::IDLE:
+        std::cerr << "***  MODE: IDLE ***\n";
         robot->setJointPosition(jpos_cmd.get());
         break;
+      case Robot::Mode::STOPPED:
+        std::cerr << "***  MODE: STOPPED ***\n";
+        break;
     }
+
+    std::cerr << "count = " << count++ << "\n";
 
     // sync with KRC
     robot->waitNextCycle();
