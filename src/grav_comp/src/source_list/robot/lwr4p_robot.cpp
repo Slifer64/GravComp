@@ -88,12 +88,11 @@ LWR4p_Robot::LWR4p_Robot(const ToolEstimator *tool_est):Robot(tool_est)
   std::cerr << "=======> Robot created successfully!\n";
 
   std::string ft_sensor_ip = "192.168.2.1";
-  std::cerr << "Initializing F/T sensor at ip: " << ft_sensor_ip << "\n";
+  std::cerr << "=======> Initializing F/T sensor at ip: " << ft_sensor_ip << "\n";
   ftsensor.init(ft_sensor_ip.c_str());
   ftsensor.setTimeout(1.0);
   // ftsensor.setBias();
-
-  std::cerr << "Initialed\n";
+  std::cerr << "=======> F/T sensor initialized successfully!\n";
 
   mode.set(Robot::STOPPED);
   cmd_mode.set(mode.get());
@@ -154,8 +153,12 @@ void LWR4p_Robot::commandThread()
   arma::mat J;
   arma::vec dq;
 
+  arma::wall_clock timer;
+
   while (isOk())
   {
+    timer.tic();
+
     Mode new_mode = cmd_mode.read();
     // check if we have to switch mode
     if (new_mode != mode.read())
@@ -179,7 +182,6 @@ void LWR4p_Robot::commandThread()
           cart_vel_cmd.set(arma::vec().zeros(6));
           break;
         case IDLE:
-          std::cerr << "===>> Setting MODE to: IDLE\n";
           robot->setMode(lwr4p::Mode::POSITION_CONTROL);
           jpos_cmd.set(robot->getJointPosition());
           break;
@@ -194,13 +196,14 @@ void LWR4p_Robot::commandThread()
       }
       mode.set(new_mode);
       mode_change.notify();
+
+      continue;
     }
 
     // send command according to current mode
     switch (mode.read())
     {
       case JOINT_POS_CONTROL:
-        std::cerr << "***  MODE: JOINT_POS_CONTROL ***\n";
         robot->setJointPosition(jpos_cmd.get());
         break;
       case JOINT_TORQUE_CONTROL:
@@ -217,19 +220,21 @@ void LWR4p_Robot::commandThread()
         robot->setJointTorque(jtorque_cmd.get());
         break;
       case Robot::Mode::IDLE:
-        std::cerr << "***  MODE: IDLE ***\n";
+        // std::cerr << "*** Send command in IDLE mode ***\n";
+        // std::cerr << "Robot mode: " << robot->getModeName() << "\n";
         robot->setJointPosition(jpos_cmd.get());
         break;
       case Robot::Mode::STOPPED:
-        std::cerr << "***  MODE: STOPPED ***\n";
+        // std::cerr << "***  MODE: STOPPED ***\n";
         break;
     }
-
-    std::cerr << "count = " << count++ << "\n";
 
     // sync with KRC
     robot->waitNextCycle();
     KRC_tick.notify();
+
+    double elaps_time = timer.toc()*1000;
+    if (elaps_time > 6) std::cerr << "Elaps time: " << elaps_time << " ms\n";
   }
 
   mode_change.notify(); // unblock in case wait was called from another thread

@@ -11,11 +11,15 @@
 #include <string>
 #include <iomanip>
 #include <mutex>
+#include <thread>
 #include <condition_variable>
+#include <pthread.h>
 
 #include <armadillo>
 
 #include <QMetaType>
+
+bool makeThreadRT(std::thread &thr);
 
 void PRINT_INFO_MSG(const std::string &msg, std::ostream &out = std::cout);
 void PRINT_CONFIRM_MSG(const std::string &msg, std::ostream &out = std::cout);

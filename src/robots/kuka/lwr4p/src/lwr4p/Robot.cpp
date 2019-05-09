@@ -13,6 +13,14 @@ namespace lwr4p
 
   Robot::Robot(const char *path_to_FRI_init): N_JOINTS(7)
   {
+    mode_name[Mode::UNDEFINED] = "UNDEFINED";
+    mode_name[Mode::STOPPED] = "STOPPED";
+    mode_name[Mode::POSITION_CONTROL] = "POSITION_CONTROL";
+    mode_name[Mode::VELOCITY_CONTROL] = "VELOCITY_CONTROL";
+    mode_name[Mode::TORQUE_CONTROL] = "TORQUE_CONTROL";
+    mode_name[Mode::IMPEDANCE_CONTROL] = "IMPEDANCE_CONTROL";
+    mode_name[Mode::JOINT_TRAJECTORY] = "JOINT_TRAJECTORY";
+
     if (path_to_FRI_init == NULL)
     {
       std::string path = ros::package::getPath("lwr4p") + "/FRILibrary/980500-FRI-Driver.init";
@@ -24,6 +32,7 @@ namespace lwr4p
     this->mode = lwr4p::Mode::UNDEFINED;  // Dummy initialization before stopping controller
     stopController();  // Initially the robot is stopped
     startJointPositionController();
+    waitNextCycle();
 
     // preallocate memory for jacobian
     jacob_temp = reinterpret_cast<float**>(malloc(sizeof(float *) * 6));

@@ -11,6 +11,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <map>
 
 #include <armadillo>
 
@@ -37,6 +38,7 @@ public:
   void waitNextCycle() { FRI->WaitForKRCTick(); }
   double getControlCycle() const { return cycle; }
   Mode getMode() const { return mode; }
+  std::string getModeName() const { return mode_name.find(mode)->second; }
 
   arma::vec getJointPosition()
   {
@@ -176,6 +178,9 @@ public:
 
   void setJointPosition(const arma::vec &input)
   {
+    // if (FRI->GetFRIMode() == FRIStateSet::FRI_STATE_MON) std::cerr << "FRI mode: MONITOR\n";
+    // else if (FRI->GetFRIMode() == FRI_STATE_CMD) std::cerr << "FRI mode: COMMAND\n";
+
     if (this->mode == lwr4p::Mode::POSITION_CONTROL)
     {
       if (FRI->GetFRIMode() == FRIStateSet::FRI_STATE_MON)
@@ -338,6 +343,8 @@ private:
    * @brief The current Mode of the robot.
    */
   Mode mode;
+
+  std::map<lwr4p::Mode, std::string> mode_name;
 
   /**
    * @brief The control cycle of the robot.

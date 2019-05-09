@@ -674,11 +674,13 @@ void MainWindow::recPredefPosesPressed()
   rec_predef_poses_btn->setEnabled(false);
   updateGUIonRecPredefPoses();
 
-  std::thread([this]()
+  std::thread thr = std::thread([this]()
   {
     ExecResultMsg msg = this->grav_comp->recPredefPoses();
     recPredefPosesAckSignal(msg);
-  }).detach();
+  });
+  makeThreadRT(thr);
+  thr.detach();
 }
 
 void MainWindow::recPredefPosesAckSlot(const ExecResultMsg &msg)
