@@ -1,5 +1,7 @@
 #include <grav_comp/robot/lwr4p_sim_robot.h>
 
+#include <iomanip>
+
 LWR4p_Sim_Robot::LWR4p_Sim_Robot(const ToolEstimator *tool_est):Robot(tool_est)
 {
   N_JOINTS = 7;
@@ -54,9 +56,12 @@ void LWR4p_Sim_Robot::commandThread()
   arma::vec dq;
 
   arma::wall_clock timer;
+  int count = 0;
 
   while (isOk())
   {
+    timer.tic();
+
     Mode new_mode = cmd_mode.get();
     // check if we have to switch mode
     if (new_mode != mode.get())
@@ -131,8 +136,17 @@ void LWR4p_Sim_Robot::commandThread()
     waitNextCycle();
     KRC_tick.notify();
 
-    double elaps_time = timer.toc()*1000;
-    if (elaps_time > 2*getCtrlCycle()) std::cerr << "Elaps time: " << elaps_time << " ms\n";
+    double elaps_time = timer.toc();
+    char msg[100];
+    snprintf(msg, 100, "Elaps time: %2.2f ms\n", elaps_time*1000);
+    count++;
+    if (count%1000 == 0)
+    {
+        std::cerr << msg;
+        count = 0;
+    }
+
+    if (elaps_time > 2*getCtrlCycle()) std::cerr << "*** WARNING ***  " << msg;
   }
 
   mode_change.notify(); // unblock in case wait was called from another thread

@@ -181,20 +181,16 @@ void LWR4p_Robot::commandThread()
         break;
       case JOINT_TORQUE_CONTROL:
         robot->setJointTorque(jtorque_cmd.get());
-        // std::cerr << "jtorque_cmd.get() = " << jtorque_cmd.get().t() << "\n";
         break;
       case CART_VEL_CTRL:
         J = robot->getRobotJacobian();
         dq = arma::pinv(J)*cart_vel_cmd.get();
-        // std::cerr << "dq = " << dq.t() << "\n";
         robot->setJointVelocity(dq);
         break;
       case Robot::Mode::FREEDRIVE:
         robot->setJointTorque(jtorque_cmd.get());
         break;
       case Robot::Mode::IDLE:
-        // std::cerr << "*** Send command in IDLE mode ***\n";
-        // std::cerr << "Robot mode: " << robot->getModeName() << "\n";
         robot->setJointPosition(jpos_cmd.get());
         break;
       case Robot::Mode::STOPPED:
@@ -206,8 +202,17 @@ void LWR4p_Robot::commandThread()
     robot->waitNextCycle();
     KRC_tick.notify();
 
-    double elaps_time = timer.toc()*1000;
-    if (elaps_time > 2*getCtrlCycle()) std::cerr << "Elaps time: " << elaps_time << " ms\n";
+    double elaps_time = timer.toc();
+    char msg[100];
+    snprintf(msg, 100, "Elaps time: %2.2f ms\n", elaps_time*1000);
+    count++;
+//    if (count%1000 == 0)
+//    {
+//      std::cerr << msg;
+//      count = 0;
+//    }
+
+    if (elaps_time > 2*getCtrlCycle()) std::cerr << "*** WARNING ***  " << msg;
   }
 
   mode_change.notify(); // unblock in case wait was called from another thread
