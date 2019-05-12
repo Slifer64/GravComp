@@ -98,44 +98,17 @@ LWR4p_Robot::LWR4p_Robot(const ToolEstimator *tool_est):Robot(tool_est)
   cmd_mode.set(mode.get());
   jpos_cmd.set(robot->getJointPosition());
 
-  launchRobotRTCtrlThread();
+
+    std::thread thr = std::thread(&LWR4p_Robot::commandThread,this);
+    std::string err_msg;
+    if (!makeThreadRT(thr, &err_msg))
+        std::cerr << "[LWR4p_Robot::makeThreadRT ERROR]:\n ****  " << err_msg << "  ****\n";
+    thr.detach();
 }
 
 LWR4p_Robot::~LWR4p_Robot()
 {
 
-}
-
-void LWR4p_Robot::launchRobotRTCtrlThread()
-{
-  std::thread rt_run_thread = std::thread(&LWR4p_Robot::commandThread,this);
-  struct sched_param sch_param;
-  sch_param.sched_priority = 99;
-  int policy = SCHED_FIFO;
-  int ret = pthread_setschedparam(rt_run_thread.native_handle(), policy, &sch_param);
-
-  if (ret)
-  {
-    switch (ret)
-    {
-      std::cerr << "[LWR4p_Robot::launchRobotRTCtrlThread]:\n ********* ERROR setting commandThread to run in RT *********\n===> Reason:\n";
-      case ESRCH:
-        std::cerr << "No thread with the ID thread could be found.\n";
-        break;
-      case EINVAL:
-        std::cerr << "Policy is not a recognized policy, or param does not make sense for the policy.\n";
-        break;
-      case EPERM:
-        std::cerr << "The caller does not have appropriate privileges to set the specified scheduling policy and parameters.\n";
-        break;
-      case ENOTSUP:
-        std::cerr << "Attempt was made to set the policy or scheduling parameters to an unsupported value.\n";
-        break;
-      default:
-        std::cerr << "Unknown error coce: \"" << ret << "\"\n";
-    }
-  }
-  rt_run_thread.detach();
 }
 
 void LWR4p_Robot::setMode(const Robot::Mode &mode)
@@ -234,7 +207,7 @@ void LWR4p_Robot::commandThread()
     KRC_tick.notify();
 
     double elaps_time = timer.toc()*1000;
-    if (elaps_time > 6) std::cerr << "Elaps time: " << elaps_time << " ms\n";
+    if (elaps_time > 2*getCtrlCycle()) std::cerr << "Elaps time: " << elaps_time << " ms\n";
   }
 
   mode_change.notify(); // unblock in case wait was called from another thread

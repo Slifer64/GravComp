@@ -276,7 +276,7 @@ void PoseWidget::setChecked(bool set)
 void PoseWidget::setReadOnly(bool set)
 {
   QPalette palette = jpos_le[0]->palette();
-  if (set) palette.setColor(QPalette::Base, QColor(250,250,250));
+  if (set) palette.setColor(QPalette::Base, QColor(246,246,246));
   else palette.setColor(QPalette::Base, QColor(255,255,255));
 
   for (int i=0; i<jpos_le.size(); i++)

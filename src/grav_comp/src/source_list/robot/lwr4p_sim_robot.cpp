@@ -28,7 +28,11 @@ LWR4p_Sim_Robot::LWR4p_Sim_Robot(const ToolEstimator *tool_est):Robot(tool_est)
   cmd_mode.set(mode.get());
   jpos_cmd.set(jpos);
 
-  std::thread(&LWR4p_Sim_Robot::commandThread,this).detach();
+  std::thread thr = std::thread(&LWR4p_Sim_Robot::commandThread,this);
+  std::string err_msg;
+  if (!makeThreadRT(thr, &err_msg))
+    std::cerr << "[LWR4p_Sim_Robot::makeThreadRT ERROR]:\n ****  " << err_msg << "  ****\n";
+  thr.detach();
 }
 
 LWR4p_Sim_Robot::~LWR4p_Sim_Robot()
@@ -48,6 +52,8 @@ void LWR4p_Sim_Robot::commandThread()
 {
   arma::mat J;
   arma::vec dq;
+
+  arma::wall_clock timer;
 
   while (isOk())
   {
@@ -124,6 +130,9 @@ void LWR4p_Sim_Robot::commandThread()
     // sync with KRC
     waitNextCycle();
     KRC_tick.notify();
+
+    double elaps_time = timer.toc()*1000;
+    if (elaps_time > 2*getCtrlCycle()) std::cerr << "Elaps time: " << elaps_time << " ms\n";
   }
 
   mode_change.notify(); // unblock in case wait was called from another thread

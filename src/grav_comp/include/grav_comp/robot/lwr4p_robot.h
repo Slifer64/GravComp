@@ -135,8 +135,6 @@ private:
   arma::vec jpos_low_lim;
   arma::vec jpos_upper_lim;
   std::vector<std::string> jnames;
-
-  void launchRobotRTCtrlThread();
 };
 
 #endif // GRAVITY_COMPENSATION_LWR4P_ROBOT_H

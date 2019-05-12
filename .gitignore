@@ -96,6 +96,7 @@ c++/as64_ws/src/CMakeLists.txt
 build/
 devel/
 bin/
+src/CMakeLists.txt
 #lib/
 msg_gen/
 srv_gen/

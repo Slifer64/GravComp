@@ -1,33 +1,39 @@
 #include <grav_comp/utils.h>
+#include <sstream>
 
-
-bool makeThreadRT(std::thread &thr)
+bool makeThreadRT(std::thread &thr, std::string *err_msg)
 {
   struct sched_param sch_param;
   sch_param.sched_priority = 99;
   int policy = SCHED_FIFO;
   int ret = pthread_setschedparam(thr.native_handle(), policy, &sch_param);
 
+  std::string error_msg;
+
   if (ret)
   {
     switch (ret)
     {
-      std::cerr << "[makeThreadRT::ERROR]:\n ********* ERROR setting thread in RT *********\n===> Reason:\n";
+      // std::cerr << "[makeThreadRT::ERROR]:\n ********* ERROR setting thread in RT *********\n===> Reason:\n";
       case ESRCH:
-        std::cerr << "No thread with the ID thread could be found.\n";
+        error_msg = "No thread with the ID thread could be found.";
         break;
       case EINVAL:
-        std::cerr << "Policy is not a recognized policy, or param does not make sense for the policy.\n";
+        error_msg = "Policy is not a recognized policy, or param does not make sense for the policy.";
         break;
       case EPERM:
-        std::cerr << "The caller does not have appropriate privileges to set the specified scheduling policy and parameters.\n";
+        error_msg = "The caller does not have appropriate privileges to set the specified scheduling policy and parameters.";
         break;
       case ENOTSUP:
-        std::cerr << "Attempt was made to set the policy or scheduling parameters to an unsupported value.\n";
+        error_msg = "Attempt was made to set the policy or scheduling parameters to an unsupported value.";
         break;
       default:
-        std::cerr << "Unknown error coce: \"" << ret << "\"\n";
+        std::ostringstream oss;
+        oss << ret;
+        error_msg = "Unknown error coce: \"" + oss.str() + "\"";
     }
+    if (err_msg) *err_msg = error_msg;
+
     return false;
   }
   return true;
