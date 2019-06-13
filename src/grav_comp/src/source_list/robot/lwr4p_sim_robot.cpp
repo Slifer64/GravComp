@@ -30,11 +30,11 @@ LWR4p_Sim_Robot::LWR4p_Sim_Robot(const ToolEstimator *tool_est):Robot(tool_est)
   cmd_mode.set(mode.get());
   jpos_cmd.set(jpos);
 
-  std::thread thr = std::thread(&LWR4p_Sim_Robot::commandThread,this);
-  std::string err_msg;
-  if (!makeThreadRT(thr, &err_msg))
-    std::cerr << "[LWR4p_Sim_Robot::makeThreadRT ERROR]:\n ****  " << err_msg << "  ****\n";
-  thr.detach();
+  std::thread robot_ctrl_thread = std::thread(&LWR4p_Sim_Robot::commandThread,this);
+  int err_code = setThreadPriority(robot_ctrl_thread, SCHED_FIFO, 99);
+  if (err_code) PRINT_WARNING_MSG("[LWR4p_Sim_Robot::LWR4p_Sim_Robot]: Failed to set thread priority! Reason:\n" + setThreadPriorErrMsg(err_code) + "\n", std::cerr);
+  else PRINT_INFO_MSG("[LWR4p_Sim_Robot::LWR4p_Sim_Robot]: Set thread priority successfully!\n", std::cerr);
+  robot_ctrl_thread.detach();
 }
 
 LWR4p_Sim_Robot::~LWR4p_Sim_Robot()
@@ -137,16 +137,12 @@ void LWR4p_Sim_Robot::commandThread()
     KRC_tick.notify();
 
     double elaps_time = timer.toc();
-    char msg[100];
-    snprintf(msg, 100, "Elaps time: %2.2f ms\n", elaps_time*1000);
-    count++;
-    if (count%1000 == 0)
+    if (elaps_time > 1.5*getCtrlCycle())
     {
-        std::cerr << msg;
-        count = 0;
+      std::ostringstream oss;
+      oss << elaps_time*1000;
+      PRINT_WARNING_MSG("[LWR4p_Sim_Robot::commandThread]: *** WARNING *** Elaps time = " + oss.str() + "\n");
     }
-
-    if (elaps_time > 2*getCtrlCycle()) std::cerr << "*** WARNING ***  " << msg;
   }
 
   mode_change.notify(); // unblock in case wait was called from another thread

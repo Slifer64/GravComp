@@ -1,6 +1,7 @@
 #include <grav_comp/grav_comp.h>
 
 #include <QApplication>
+#include <QThread>
 
 #include <exception>
 #include <fstream>
@@ -44,6 +45,7 @@ void GravComp::launch()
   int argc = 0;
   char **argv = 0;
   QApplication app(argc, argv);
+  QThread::currentThread()->setPriority(QThread::LowestPriority);
   this->gui = new MainWindow(this->robot.get(), this);
   this->gui->show();
   this->start_sem.notify();

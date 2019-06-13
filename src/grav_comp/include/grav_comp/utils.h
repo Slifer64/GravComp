@@ -19,7 +19,9 @@
 
 #include <QMetaType>
 
-bool makeThreadRT(std::thread &thr, std::string *err_msg=0);
+int makeThreadRT(std::thread &thr);
+int setThreadPriority(std::thread &thr, int policy, int priority);
+std::string setThreadPriorErrMsg(int error_code);
 
 void PRINT_INFO_MSG(const std::string &msg, std::ostream &out = std::cout);
 void PRINT_CONFIRM_MSG(const std::string &msg, std::ostream &out = std::cout);
