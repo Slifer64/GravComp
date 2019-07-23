@@ -206,7 +206,7 @@ void LWR4p_Robot::commandThread()
     {
       std::ostringstream oss;
       oss << elaps_time*1000;
-      PRINT_WARNING_MSG("[LWR4p_Robot::commandThread]: *** WARNING *** Elaps time = " + oss.str() + "\n");
+      PRINT_WARNING_MSG("[LWR4p_Robot::commandThread]: *** WARNING *** Elaps time = " + oss.str() + " ms\n");
     }
   }
 
