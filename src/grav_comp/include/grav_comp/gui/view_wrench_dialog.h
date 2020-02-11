@@ -20,7 +20,7 @@ class ViewWrenchDialog : public QDialog
     Q_OBJECT
 
 public:
-    ViewWrenchDialog(std::function<arma::vec()> readWrench, QWidget *parent = 0);
+    ViewWrenchDialog(std::function<arma::vec()> readWrench, const std::string &win_name="", QWidget *parent = 0);
     ~ViewWrenchDialog();
 
 public slots:

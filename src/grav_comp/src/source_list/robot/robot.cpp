@@ -85,3 +85,66 @@ arma::mat Robot::get5thOrder(double t, arma::vec p0, arma::vec pT, double totalT
   // return vector
   return retTemp;
 }
+
+arma::mat Robot::rotX(double theta)
+{
+  arma::mat rot(3, 3);
+  rot(0, 0) = 1;
+  rot(0, 1) = 0;
+  rot(0, 2) = 0;
+
+  rot(1, 0) = 0;
+  rot(1, 1) = std::cos(theta);
+  rot(1, 2) = -std::sin(theta);
+
+  rot(2, 0) = 0;
+  rot(2, 1) = std::sin(theta);
+  rot(2, 2) = std::cos(theta);
+
+  return rot;
+}
+
+arma::mat Robot::rotY(double theta)
+{
+  arma::mat rot(3, 3);
+  rot(0, 0) = std::cos(theta);
+  rot(0, 1) = 0;
+  rot(0, 2) = std::sin(theta);
+
+  rot(1, 0) = 0;
+  rot(1, 1) = 1;
+  rot(1, 2) = 0;
+
+  rot(2, 0) = -std::sin(theta);
+  rot(2, 1) = 0;
+  rot(2, 2) = std::cos(theta);
+
+  return rot;
+}
+
+arma::mat Robot::rotZ(double theta)
+{
+  arma::mat rot(3, 3);
+  rot(0, 0) = std::cos(theta);
+  rot(0, 1) = -std::sin(theta);
+  rot(0, 2) = 0;
+
+  rot(1, 0) = std::sin(theta);
+  rot(1, 1) = std::cos(theta);
+  rot(1, 2) = 0;
+
+  rot(2, 0) = 0;
+  rot(2, 1) = 0;
+  rot(2, 2) = 1;
+
+  return rot;
+}
+
+arma::mat Robot::get6x6Rotation(const arma::mat& rotation)
+{
+  arma::mat output(6, 6);
+  output.zeros();
+  output.submat(0, 0, 2, 2) = rotation;
+  output.submat(3, 3, 5, 5) = rotation;
+  return output;
+}

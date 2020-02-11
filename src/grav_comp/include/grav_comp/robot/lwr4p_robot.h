@@ -53,7 +53,11 @@ public:
     Fext(4) = measurements[4];
     Fext(5) = measurements[5];
 
-    // arma::mat R = robot->getTaskOrientation();
+
+    arma::mat R = robot->getTaskOrientation();
+    arma::mat Tf = Robot::get6x6Rotation( R * Robot::rotY(M_PI/2.0) * Robot::rotZ(M_PI) );
+
+    Fext = Tf*Fext;
     // Fext.subvec(0,2) = R*Fext.subvec(0,2);
     // Fext.subvec(3,5) = R*Fext.subvec(3,5);
 
@@ -71,11 +75,19 @@ public:
     arma::vec quat(4);
 
     wrench = this->getTaskWrench();
-    quat = this->getTaskOrientation();
+    // quat = this->getTaskOrientation();
+    arma::mat R = robot->getTaskOrientation();
+    arma::mat Tf = Robot::get6x6Rotation( R * Robot::rotY(M_PI/2.0) * Robot::rotZ(M_PI) );
+    quat = rotm2quat(R);
     Eigen::Vector6d tool_wrench = tool_estimator->getToolWrench(Eigen::Quaterniond(quat(0),quat(1),quat(2),quat(3)));
     wrench_map -= tool_wrench;
 
     return wrench;
+  }
+
+  arma::vec getEstimatedTaskWrench() const
+  {
+    return robot->getExternalWrench();
   }
 
   arma::vec getJointsPosition() const

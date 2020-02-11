@@ -72,6 +72,7 @@ public:
   virtual std::vector<std::string> getJointNames() const = 0;
 
   virtual arma::vec getCompTaskWrench() const = 0;
+  virtual arma::vec getEstimatedTaskWrench() const = 0;
 
   static arma::mat get5thOrder(double t, arma::vec p0, arma::vec pT, double totalTime);
 
@@ -90,6 +91,12 @@ protected:
   Semaphore KRC_tick;
 
   const ToolEstimator *tool_estimator;
+
+  static arma::mat rotX(double theta);
+  static arma::mat rotY(double theta);
+  static arma::mat rotZ(double theta);
+  static arma::mat get6x6Rotation(const arma::mat& rotation);
+
 };
 
 #endif // GRAVITY_COMPENSATION_ROBOT_H

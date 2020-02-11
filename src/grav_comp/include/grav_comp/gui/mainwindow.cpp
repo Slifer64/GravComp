@@ -159,6 +159,9 @@ void MainWindow::createActions()
   view_wrench_act = new QAction(tr("View wrench"), this);
   view_wrench_act->setStatusTip(tr("Opens a window displaying the compensated tool wrench."));
 
+  view_est_wrench_act = new QAction(tr("View estimated wrench"), this);
+  view_est_wrench_act->setStatusTip(tr("Opens a window displaying the estimated (from the robot) tool wrench."));
+
   view_pose_act = new QAction(tr("View pose"), this);
   view_pose_act->setStatusTip(tr("Opens a window displaying the robot's end-effector pose."));
 
@@ -183,6 +186,8 @@ void MainWindow::createConnections()
   QObject::connect( set_predef_poses_act, &QAction::triggered, [this](){ this->set_poses_dialog->launch(); } );
 
   QObject::connect( view_wrench_act, &QAction::triggered, [this](){ this->view_wrench_dialog->launch(); } );
+
+  QObject::connect( view_est_wrench_act, &QAction::triggered, [this](){ this->view_est_wrench_dialog->launch(); } );
 
   QObject::connect( view_pose_act, &QAction::triggered, [this](){ this->view_pose_dialog->launch();} );
 
@@ -234,7 +239,9 @@ void MainWindow::createMenus()
   view_menu = menu_bar->addMenu(tr("&View"));
   view_menu->addAction(view_pose_act);
   view_menu->addAction(view_joints_act);
+  view_menu->addSeparator();
   view_menu->addAction(view_wrench_act);
+  view_menu->addAction(view_est_wrench_act);
   // view_menu->addSeparator();
 }
 
@@ -243,7 +250,8 @@ void MainWindow::createWidgets()
   QFont font1("Ubuntu", 13, QFont::DemiBold);
   QFont font2("Ubuntu", 15, QFont::DemiBold);
 
-  view_wrench_dialog = new ViewWrenchDialog(std::bind(&Robot::getCompTaskWrench, robot), this);
+  view_est_wrench_dialog = new ViewWrenchDialog(std::bind(&Robot::getEstimatedTaskWrench, robot), "Estimated Tool wrench", this);
+  view_wrench_dialog = new ViewWrenchDialog(std::bind(&Robot::getCompTaskWrench, robot), "Tool wrench", this);
   view_pose_dialog = new ViewPoseDialog(std::bind(&Robot::getTaskPosition, robot), std::bind(&Robot::getTaskOrientation, robot), this);
   view_jpos_dialog = new ViewJPosDialog(robot->getJointsLowerLimits(), robot->getJointsUpperLimits(), std::bind(&Robot::getJointsPosition, robot), this);
   view_jpos_dialog->setJointNames(robot->getJointNames());

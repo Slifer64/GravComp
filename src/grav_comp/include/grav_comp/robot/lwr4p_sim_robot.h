@@ -47,6 +47,11 @@ public:
     return wrench;
   }
 
+  arma::vec getEstimatedTaskWrench() const
+  {
+    return getCompTaskWrench();
+  }
+
   arma::vec getJointsPosition() const
   { return jpos; }
 

@@ -1,12 +1,13 @@
 #include "view_wrench_dialog.h"
 
-ViewWrenchDialog::ViewWrenchDialog(std::function<arma::vec()> readWrench, QWidget *parent): QDialog(parent)
+ViewWrenchDialog::ViewWrenchDialog(std::function<arma::vec()> readWrench, const std::string &win_name, QWidget *parent): QDialog(parent)
 {
     run = false;
 
     this->readWrench = readWrench;
 
-    this->setWindowTitle("Tool wrench");
+    if (!win_name.empty()) this->setWindowTitle(win_name.c_str());
+    else this->setWindowTitle("Tool wrench");
 
     QLabel *pos_label = new QLabel("Force");
     pos_label->setStyleSheet("background-color: rgb(245,245,245); color: rgb(0,0,0); font: 75 14pt \"FreeSans\";");

@@ -123,6 +123,7 @@ private:
     ViewPoseDialog *view_pose_dialog; ///< Pointer to QDialog object for displaying the robot tool pose.
     ViewJPosDialog *view_jpos_dialog; ///< Pointer to QDialog object for displaying the robot's joint angles.
     ViewWrenchDialog *view_wrench_dialog; ///< Pointer to QDialog object for displaying the robot's tool wrench.
+    ViewWrenchDialog *view_est_wrench_dialog; ///< Pointer to QDialog object for displaying the robot's tool wrench.
     SetPosesDialog *set_poses_dialog; ///< Pointer to QDialog object for setting predefined poses for recording wrench-orient.
 
     // ======  menus  ========
@@ -141,6 +142,7 @@ private:
     QAction *view_pose_act; ///< Triggers a QAction connected with the launch of 'view_pose_dialog'.
     QAction *view_joints_act; ///< Triggers a QAction connected with the launch of 'view_jpos_dialog'.
     QAction *view_wrench_act; ///< Triggers a QAction connected with the launch of 'view_wrench_dialog'.
+    QAction *view_est_wrench_act; ///< Triggers a QAction connected with the launch of 'view_wrench_dialog'.
     QAction *set_predef_poses_act; ///< Triggers a QAction connected with the launch of 'set_predef_poses_dialog'.
 
     // ======  widgets  ========
