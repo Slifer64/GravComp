@@ -21,6 +21,9 @@ public:
   arma::vec getTaskPosition() const
   { return task_pos; }
 
+  arma::mat getTaskRotMat() const
+  { return arma::mat().eye(3,3); }
+
   arma::vec getTaskOrientation() const
   { return task_orient; }
 

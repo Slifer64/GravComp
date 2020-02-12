@@ -11,6 +11,8 @@ Robot::Robot(const ToolEstimator *tool_est):tool_estimator(tool_est)
   mode_name[3] = "FREEDRIVE";
   mode_name[4] = "IDLE";
   mode_name[5] = "STOPPED";
+
+  R_et = arma::mat().eye(3,3);
 }
 
 Robot::~Robot()

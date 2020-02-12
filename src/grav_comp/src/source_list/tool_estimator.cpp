@@ -22,6 +22,7 @@
 
 #include <grav_comp/tool_estimator.h>
 #include <cassert>
+#include <iostream>
 
 using namespace Eigen;
 
@@ -85,6 +86,9 @@ void ToolEstimator::estimatePayload(const std::vector<Vector6d>& wrench_data, co
 
   // Estimate mass
   double mass = fz_world.cwiseAbs().sum() / (n_data * std::fabs(this->gravity_vector_world(2)));
+
+  std::cerr << "mass = " << mass << "\n";
+
   this->setMass(mass);
 
   // minus_skew_force *= mass;

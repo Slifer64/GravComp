@@ -39,6 +39,7 @@ public:
 
   virtual arma::vec getTaskPosition() const = 0;
   virtual arma::vec getTaskOrientation() const = 0;
+  virtual arma::mat getTaskRotMat() const = 0;
   virtual arma::vec getTaskForce() const = 0;
   virtual arma::vec getTaskTorque() const = 0;
   virtual arma::vec getTaskWrench() const = 0;
@@ -76,6 +77,8 @@ public:
 
   static arma::mat get5thOrder(double t, arma::vec p0, arma::vec pT, double totalTime);
 
+  void setEeToolRot(const arma::mat &R) { this->R_et = R; }
+
 protected:
 
   Eigen::Vector4d rotm2quat(Eigen::Matrix3d rotm) const;
@@ -91,6 +94,8 @@ protected:
   Semaphore KRC_tick;
 
   const ToolEstimator *tool_estimator;
+
+  arma::mat R_et; // end-effector tool rotaion matrix
 
   static arma::mat rotX(double theta);
   static arma::mat rotY(double theta);

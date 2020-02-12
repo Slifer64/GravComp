@@ -29,6 +29,14 @@ GravComp::GravComp()
   if (robot_type.compare("lwr4p")==0) robot.reset(new LWR4p_Robot(&tool_estimator));
   else if (robot_type.compare("lwr4p_sim")==0) robot.reset(new LWR4p_Sim_Robot(&tool_estimator));
   else throw std::runtime_error("Unsupported robot type \"" + robot_type + "\".");
+
+  std::vector<double> ee_tool_rot;
+  if (nh.getParam("ee_tool_rot", ee_tool_rot))
+  {
+    arma::mat R_et(3,3);
+    for (int i=0;i<3; i++){ for (int j=0;j<3; j++) R_et(i,j) = ee_tool_rot[i*3+j]; }
+    this->robot->setEeToolRot(R_et);
+  }
 }
 
 GravComp::~GravComp()

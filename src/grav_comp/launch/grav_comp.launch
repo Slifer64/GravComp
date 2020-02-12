@@ -9,6 +9,8 @@
           <rosparam>
             robot_type: "lwr4p"
             CoM_filename: "CoM.yaml"
+
+            ee_tool_rot: [0, 0, 1, 0, -1, 0, 1, 0, 0]
           </rosparam>
 
     </node>
