@@ -1,0 +1,86 @@
+<?xml version="1.0"?>
+<robot name="table" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <property name="table_base_x" value="0.2"/>
+    <property name="table_base_y" value="0.2"/>
+    <property name="table_base_z" value="0.01"/>
+
+    <property name="table1_x" value="0.6"/>
+    <property name="table1_y" value="1.1"/>
+
+    <property name="table2_x" value="0.8"/>
+    <property name="table2_y" value="1.6"/>
+
+    <property name="table_height" value="0.05"/>
+
+    <material name="Brown">
+        <color rgba="0.45 0.1 0.05 1.0"/>
+    </material>
+
+    <material name="DarkGrey">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+    </material>
+
+<!--    <property name="mesh_path" value = "package://lwr4p/meshes" />-->
+
+    <xacro:macro name="table" params="parent name">
+
+        <!-- JOINT from parent to base link -->
+        <joint name="${parent}_${name}base_joint" type="fixed">
+            <origin xyz="0 0 ${0.5*table_base_z}" rpy="0 0 0"/>
+            <parent link="${parent}"/>
+            <child link="${name}base_link"/>
+        </joint>
+
+        <!-- Table base link -->
+        <link name="${name}base_link">
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <box size="${table_base_x} ${table_base_y} ${table_base_z}" />
+                </geometry>
+                <material name="DarkGrey"/>
+            </visual>
+        </link>
+
+
+        <!-- JOINT from base to part 1 link -->
+        <joint name="${name}base_${name}1_joint" type="fixed">
+            <origin xyz="0 ${0.5*table1_y-0.2} -${0.5*table_base_z+0.5*table_height}" rpy="0 0 0"/>
+            <parent link="${name}base_link"/>
+            <child link="${name}1_link"/>
+        </joint>
+
+        <!-- Table Part 1 link -->
+        <link name="${name}1_link">
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <box size="${table1_x} ${table1_y} ${table_height}" />
+                </geometry>
+                <material name="Brown"/>
+            </visual>
+        </link>
+
+
+        <!-- Table Part 1 to 2 JOINT -->
+        <joint name="${name}1_${name}2_joint" type="fixed">
+            <origin xyz="${0.5*table1_x} ${0.5*table1_y} 0" rpy="0 0 1.5708"/>
+            <parent link="${name}1_link"/>
+            <child link="${name}2_link"/>
+        </joint>
+
+        <!-- Table Part 2 link -->
+        <link name="${name}2_link">
+            <visual>
+                <origin xyz="${0.5*table2_x} ${0.5*table2_y} 0" rpy="0 0 0" />
+                <geometry>
+                    <box size="${table2_x} ${table2_y} ${table_height}" />
+                </geometry>
+                <material name="Brown"/>
+            </visual>
+        </link>
+
+    </xacro:macro>
+
+</robot>

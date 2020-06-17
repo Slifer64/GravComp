@@ -1,40 +1,46 @@
-#ifndef GRAVITY_COMPENSATION_LWR4P_SIM_ROBOT_H
-#define GRAVITY_COMPENSATION_LWR4P_SIM_ROBOT_H
+#ifndef $_PROJECT_384$_LWR4P_SIM_ROBOT_H
+#define $_PROJECT_384$_LWR4P_SIM_ROBOT_H
 
 #include <grav_comp/robot/robot.h>
-#include <lwr4p/Robot.h>
+#include <lwr4p/lwr4p_sim_robot.h>
+#include <robo_lib/joint_state_publisher.h>
 
 class LWR4p_Sim_Robot: public Robot
 {
 public:
-  LWR4p_Sim_Robot(const ToolEstimator *tool_est);
+  LWR4p_Sim_Robot();
   ~LWR4p_Sim_Robot();
 
   void commandThread();
 
+  void setWrenchBias() { }
+
   int getNumOfJoints() const
   { return N_JOINTS; }
+
+  arma::vec getJointPosLowLim() const { return jpos_low_lim; }
+  arma::vec getJointPosUpperLim() const { return jpos_upper_lim; }
 
   std::string getErrMsg() const
   { return err_msg; }
 
   arma::vec getTaskPosition() const
-  { return task_pos; }
+  { return robot->getTaskPosition(); }
 
   arma::mat getTaskRotMat() const
-  { return arma::mat().eye(3,3); }
+  { return robot->getTaskOrientation() * R_et; }
 
   arma::vec getTaskOrientation() const
-  { return task_orient; }
+  { return rotm2quat(this->getTaskRotMat()); }
 
   arma::vec getTaskForce() const
-  { return task_wrench.subvec(0,2); }
+  { return (robot->getExternalWrench()).subvec(0,2); }
 
   arma::vec getTaskTorque() const
-  { return task_wrench.subvec(3,5); }
+  { return (robot->getExternalWrench()).subvec(3,5); }
 
   arma::vec getTaskWrench() const
-  { return task_wrench; }
+  { return robot->getExternalWrench(); }
 
   arma::vec getCompTaskWrench() const
   {
@@ -50,16 +56,13 @@ public:
     return wrench;
   }
 
-  arma::vec getEstimatedTaskWrench() const
-  {
-    return getCompTaskWrench();
-  }
+  arma::vec getEstimatedTaskWrench() const { return robot->getExternalWrench(); }
 
   arma::vec getJointsPosition() const
-  { return jpos; }
+  { return robot->getJointPosition(); }
 
   arma::mat getJacobian() const
-  { return Jacob; }
+  { return robot->getRobotJacobian(); }
 
   void update()
   { if (isOk()) KRC_tick.wait(); }
@@ -75,10 +78,10 @@ public:
   void setMode(const Robot::Mode &mode);
 
   double getCtrlCycle() const
-  { return ctr_cycle; }
+  { return robot->getControlCycle(); }
 
   bool isOk() const
-  { return (is_ok); }
+  { return robot->isOk(); }
 
   void setJointsPosition(const arma::vec &jpos) { jpos_cmd.set(jpos); }
   void setJointsTorque(const arma::vec &jtorq) { jtorque_cmd.set(jtorq); }
@@ -90,20 +93,7 @@ public:
 
 private:
 
-  void waitNextCycle() const
-  { std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(getCtrlCycle()*1e3))); }
-
   arma::mat get5thOrder(double t, arma::vec p0, arma::vec pT, double totalTime) const;
-
-  arma::mat task_pose;
-  arma::vec task_pos;
-  arma::vec task_orient;
-  arma::vec jpos;
-  arma::vec task_wrench;
-  arma::mat Jacob;
-
-  double ctr_cycle;
-  bool is_ok;
 
   std::string err_msg;
 
@@ -116,6 +106,11 @@ private:
   arma::vec jpos_low_lim;
   arma::vec jpos_upper_lim;
   std::vector<std::string> jnames;
+
+  std::shared_ptr<lwr4p::LWR4pSimRobot> robot;
+  as64_::robo_::JointStatePublisher jState_pub;
+
+
 };
 
-#endif // GRAVITY_COMPENSATION_LWR4p_Sim_Robot_H
+#endif // $_PROJECT_384$_LWR4p_Sim_Robot_H

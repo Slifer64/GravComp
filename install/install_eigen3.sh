@@ -19,40 +19,47 @@ echo -e $COLOR_CYAN"******************************"$COLOR_RESET
 echo -e $COLOR_CYAN"********    Eigen   **********"$COLOR_RESET
 echo -e $COLOR_CYAN"******************************"$COLOR_RESET
 
-echo -e $COLOR_BLUE"Searching for Eigen"$COLOR_RESET
-FOUND_EIGEN=`find /usr/local/include/ -name "Eigen" -print`
+EIGEN_VERSION="3.3.7"
 
-if [ -n "$FOUND_EIGEN" ]; then
-  echo -e $COLOR_GREEN"Found Eigen!"$COLOR_RESET
-  UR_ERROR=0
-  return
-else
-  echo -e $COLOR_YELLOW"Didn't find Eigen!"$COLOR_RESET
-fi
+# echo -e $COLOR_BLUE"Searching for Eigen"$COLOR_RESET
+# FOUND_EIGEN=`find /usr/local/include/ -name "Eigen" -print`
+#
+# if [ -n "$FOUND_EIGEN" ]; then
+#   echo -e $COLOR_GREEN"Found Eigen!"$COLOR_RESET
+#   AS64_ERROR=0
+#   return
+# else
+#   echo -e $COLOR_YELLOW"Didn't find Eigen!"$COLOR_RESET
+# fi
 
-if [ -d eigen3 ]; then
-  rm -rf eigen3
-fi
+find  ./ -type d -name "eigen*" | xargs rm -rf
 
 echo -e $COLOR_BLUE"Installing dependencies: fortran..."$COLOR_RESET
 printf 'y\n' | sudo apt-get install gfortran &&\
 
-echo -e $COLOR_BLUE"Downloading Eigen (v3.3.4)..."$COLOR_RESET
-wget http://bitbucket.org/eigen/eigen/get/3.3.4.tar.gz > /dev/null &&\
-tar xvf 3.3.4.tar.gz > /dev/null && \
-rm -rf 3.3.4.tar.gz && \
-mv eigen-eigen-5a0156e40feb eigen3 && \
+echo -e $COLOR_BLUE"Downloading Eigen-"$EIGEN_VERSION"..."$COLOR_RESET
+wget http://bitbucket.org/eigen/eigen/get/$EIGEN_VERSION.tar.gz > /dev/null
+if [ $? -ne 0 ]; then
+  echo -e $COLOR_RED"Failed to download Eigen-"$EIGEN_VERSION"...."$COLOR_RESET
+  echo -e $COLOR_RED"Eigen installation failed..."$COLOR_RESET
+  AS64_ERROR=1
+  return 1
+fi
+tar xvf $EIGEN_VERSION.tar.gz > /dev/null && \
+rm -rf $EIGEN_VERSION.tar.gz && \
+EIGEN_FOLDER=$(ls -d */ | grep eigen)
+mv $EIGEN_FOLDER eigen3 && \
 cd eigen3 && \
 mkdir build && \
 cd build && \
 cmake .. > /dev/null && \
-echo -e $COLOR_BLUE"Installing Eigen Library..."$COLOR_RESET && \
-sudo make install > /dev/null
+# echo -e $COLOR_BLUE"Installing Eigen Library..."$COLOR_RESET && \
+# sudo make install > /dev/null
 
 if [ $? -eq 0 ]; then
-  echo -e $COLOR_GREEN"Eigen Successfully installed!"$COLOR_RESET
-  UR_ERROR=0
+  echo -e $COLOR_GREEN"Eigen-"$EIGEN_VERSION" installed successfully!"$COLOR_RESET
+  AS64_ERROR=0
 else
-  echo -e $COLOR_RED"Failed to install Eigen..."$COLOR_RESET
-  UR_ERROR=1
+  echo -e $COLOR_RED"Failed to install Eigen-"$EIGEN_VERSION$COLOR_RESET
+  AS64_ERROR=1
 fi

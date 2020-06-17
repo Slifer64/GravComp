@@ -2,16 +2,44 @@
 
 <launch>
 
+    <arg name="use_sim" default="false" />
+
+    <!-- Set the name of the topic for publishing the joints states -->
+    <arg name="publish_states_topic" default="/robot_joint_states" />
+
+    <group if="$(arg use_sim)">
+
+      <param name="robot_description" command="$(find xacro)/xacro.py '$(find grav_comp)/urdf/lwr4pRobot_mini40_phriTool.xacro'" />
+      <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" required="true">
+          <rosparam param="source_list" subst_value="true">[$(arg publish_states_topic)]</rosparam>
+          <rosparam>
+              rate: 50
+              use_gui: true
+          </rosparam>
+      </node>
+      <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" required="true"/>
+      <node name="rviz" pkg="rviz" type="rviz" respawn="false" args="-d $(find grav_comp)/rviz/lwr4p_robot.rviz" output="screen" required="true"/>
+
+    </group>
+
     <arg name="node_name" default="grav_comp_node" />
     <node pkg="grav_comp" type="grav_comp" name="$(arg node_name)"
           output="screen" cwd="node">
 
-          <rosparam>
+        <param name="publish_states_topic" value="$(arg publish_states_topic)"/>
+        <param name="use_sim" value="$(arg use_sim)"/>
+
+        <rosparam>
             robot_type: "lwr4p"
             CoM_filename: "CoM.yaml"
 
             ee_tool_rot: [0, 0, 1, 0, -1, 0, 1, 0, 0]
-          </rosparam>
+
+            robot_description_name: "/robot_description"
+            base_link: "lwr_arm_base_link"
+            tool_link: "ee_link"
+            ctrl_cycle: 0.002
+        </rosparam>
 
     </node>
 

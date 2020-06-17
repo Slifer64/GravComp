@@ -1,8 +1,8 @@
 #include <grav_comp/robot/robot.h>
 #include <ros/package.h>
-#include <io_lib/parser.h>
+#include <io_lib/xml_parser.h>
 
-Robot::Robot(const ToolEstimator *tool_est):tool_estimator(tool_est)
+Robot::Robot()
 {
   mode_name.resize(6);
   mode_name[0] = "JOINT_POS_CONTROL";
@@ -13,11 +13,41 @@ Robot::Robot(const ToolEstimator *tool_est):tool_estimator(tool_est)
   mode_name[5] = "STOPPED";
 
   R_et = arma::mat().eye(3,3);
+
+  tool_estimator.reset(new robo_::ToolEstimator);
+
+  use_svf = false;
+  use_jlav = false;
+  emergency_stop = false;
 }
 
 Robot::~Robot()
 {
 
+}
+
+void Robot::setToolEstimator(const std::string &tool_massCoM_file)
+{
+  tool_estimator.reset(new robo_::ToolEstimator);
+  if (!tool_massCoM_file.empty()) tool_estimator->initFromFile(tool_massCoM_file);
+}
+
+void Robot::setSVFilt(double sigma_min, double shape_f)
+{
+  svf.reset(new robo_::SingularValueFilter(sigma_min, shape_f));
+
+  use_svf = true;
+}
+
+void Robot::setJLAV(double gain, double jlim_safety_margin)
+{
+  jlim_safety_margin *= 3.14159/180;
+  arma::vec q_min = this->getJointPosLowLim() + jlim_safety_margin;
+  arma::vec q_max = this->getJointPosUpperLim() - jlim_safety_margin;
+  jlav.reset(new robo_::PPCJointLimAvoid(q_min, q_max));
+  jlav->setGains(gain);
+
+  use_jlav = true;
 }
 
 Robot::Mode Robot::getMode() const
@@ -88,65 +118,63 @@ arma::mat Robot::get5thOrder(double t, arma::vec p0, arma::vec pT, double totalT
   return retTemp;
 }
 
-arma::mat Robot::rotX(double theta)
+arma::vec Robot::quatProd(const arma::vec &quat1, const arma::vec &quat2)
 {
-  arma::mat rot(3, 3);
-  rot(0, 0) = 1;
-  rot(0, 1) = 0;
-  rot(0, 2) = 0;
+  arma::vec quat12(4);
 
-  rot(1, 0) = 0;
-  rot(1, 1) = std::cos(theta);
-  rot(1, 2) = -std::sin(theta);
+  double n1 = quat1(0);
+  arma::vec e1 = quat1.subvec(1,3);
 
-  rot(2, 0) = 0;
-  rot(2, 1) = std::sin(theta);
-  rot(2, 2) = std::cos(theta);
+  double n2 = quat2(0);
+  arma::vec e2 = quat2.subvec(1,3);
 
-  return rot;
+  quat12(0) = n1*n2 - arma::dot(e1,e2);
+  quat12.subvec(1,3) = n1*e2 + n2*e1 + arma::cross(e1,e2);
+
+  return quat12;
 }
 
-arma::mat Robot::rotY(double theta)
+arma::vec Robot::quatExp(const arma::vec &v_rot, double zero_tol)
 {
-  arma::mat rot(3, 3);
-  rot(0, 0) = std::cos(theta);
-  rot(0, 1) = 0;
-  rot(0, 2) = std::sin(theta);
+  arma::vec quat(4);
+  double norm_v_rot = arma::norm(v_rot);
+  double theta = norm_v_rot;
 
-  rot(1, 0) = 0;
-  rot(1, 1) = 1;
-  rot(1, 2) = 0;
+  if (norm_v_rot > zero_tol)
+  {
+    quat(0) = std::cos(theta/2);
+    quat.subvec(1,3) = std::sin(theta/2)*v_rot/norm_v_rot;
+  }
+  else{
+    quat << 1 << 0 << 0 << 0;
+  }
 
-  rot(2, 0) = -std::sin(theta);
-  rot(2, 1) = 0;
-  rot(2, 2) = std::cos(theta);
-
-  return rot;
+  return quat;
 }
 
-arma::mat Robot::rotZ(double theta)
+arma::vec Robot::quatLog(const arma::vec &quat, double zero_tol)
 {
-  arma::mat rot(3, 3);
-  rot(0, 0) = std::cos(theta);
-  rot(0, 1) = -std::sin(theta);
-  rot(0, 2) = 0;
+  arma::vec e = quat.subvec(1,3);
+  double n = quat(0);
 
-  rot(1, 0) = std::sin(theta);
-  rot(1, 1) = std::cos(theta);
-  rot(1, 2) = 0;
+  if (n > 1) n = 1;
+  if (n < -1) n = -1;
 
-  rot(2, 0) = 0;
-  rot(2, 1) = 0;
-  rot(2, 2) = 1;
+  arma::vec omega(3);
+  double e_norm = arma::norm(e);
 
-  return rot;
+  if (e_norm > zero_tol) omega = 2*std::atan2(e_norm,n)*e/e_norm;
+  else omega = arma::vec().zeros(3);
+
+  return omega;
 }
 
-arma::mat Robot::get6x6Rotation(const arma::mat& rotation)
+arma::vec Robot::quatInv(const arma::vec &quat)
 {
-  arma::mat output(6, 6);
-  output.zeros();
-  output.submat(0, 0, 2, 2) = rotation;
-  output.submat(3, 3, 5, 5) = rotation;
-  return output;
+  arma::vec quatI(4);
+
+  quatI(0) = quat(0);
+  quatI.subvec(1,3) = - quat.subvec(1,3);
+
+  return quatI;
 }

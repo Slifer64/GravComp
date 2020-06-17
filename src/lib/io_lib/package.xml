@@ -10,7 +10,5 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <test_depend>gtest</test_depend>
-
   <export></export>
 </package>

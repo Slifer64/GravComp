@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<robot name="LWR" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<xacro:include filename="$(find lwr4p)/urdf/kuka_lwr_arm.xacro"/>
+<xacro:include filename="$(find ati_sensor_description)/urdf/ati_sensor.xacro"/>
+<xacro:include filename="$(find grav_comp)/urdf/table.xacro"/>
+<xacro:include filename="$(find grav_comp)/urdf/windshield_gripper.xacro"/>
+
+<!-- Import all Gazebo-customization elements, including Gazebo colors -->
+<xacro:include filename="$(find lwr4p)/urdf/kuka_lwr_arm.gazebo"/>
+
+
+<!-- =============  Base  ============= -->
+<link name="world" />
+<link name="base_link" />
+
+<joint name="world_base_joint" type="fixed">
+    <origin xyz="0 0 0.5" rpy="0 0 0"/>
+    <parent link="world"/>
+    <child link="base_link"/>
+</joint>
+
+
+<!-- ===============  Table  ================= -->
+<xacro:table parent="base_link" name="table" />
+
+
+<!-- ===============   Kuka  ================= -->
+<property name="robot_name" value="lwr"/>
+<xacro:kuka_lwr_arm parent="base_link" name="${robot_name}" right="1" tool_name=""/>
+<xacro:kuka_lwr_arm_gazebo name="lwr"/>
+
+<!-- ==========  End-effector link  ============= -->
+<link name="ee_link" />
+
+<joint name="ee_robot_joint" type="fixed">
+    <origin xyz="0.0 0.0 0.035" rpy="0 0 0"/>
+    <parent link="${robot_name}_arm_7_link"/>
+    <child link="ee_link"/>
+</joint>
+
+<!-- ===============   Ati sensor  ================= -->
+<property name="sensor_name" value=""/>
+<!-- -->
+<xacro:ati_sensor name="${sensor_name}" />
+
+
+<joint name="ati_robot_joint" type="fixed">
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    <parent link="${robot_name}_arm_7_link"/>
+    <child link="${sensor_name}ati_mini_40"/>
+</joint>
+
+
+<!-- ===============   Longbox  =================-->
+<link name="longbox">
+    <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+            <box size="0.082 0.122 0.325" />
+        </geometry>
+        <material name="LightBlue">
+            <color rgba="0.2 0.2 1.0 1.0"/>
+        </material>
+    </visual>
+</link>
+
+
+<joint name="ee_object_joint" type="fixed">
+    <origin xyz="0 0 0.1625" rpy="0 0 0" />
+    <parent link="ee_link"/>
+    <child link="longbox"/>
+</joint>
+
+
+</robot>

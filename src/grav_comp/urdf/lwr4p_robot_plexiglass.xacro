@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<robot name="LWR" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<xacro:include filename="$(find lwr4p)/urdf/kuka_lwr_arm.xacro"/>
+<xacro:include filename="$(find grav_comp)/urdf/table.xacro"/>
+<xacro:include filename="$(find grav_comp)/urdf/windshield_gripper.xacro"/>
+
+<!-- Import all Gazebo-customization elements, including Gazebo colors -->
+<xacro:include filename="$(find lwr4p)/urdf/kuka_lwr_arm.gazebo"/>
+
+
+<!-- =============  Base  ============= -->
+<link name="world" />
+<link name="base_link" />
+
+<joint name="world_base_joint" type="fixed">
+    <origin xyz="0 0 0.5" rpy="0 0 0"/>
+    <parent link="world"/>
+    <child link="base_link"/>
+</joint>
+
+
+<!-- ===============  Table  ================= -->
+<xacro:table parent="base_link" name="table" />
+
+
+<!-- ===============   Kuka  ================= -->
+<property name="robot_name" value="lwr"/>
+<xacro:kuka_lwr_arm parent="base_link" name="${robot_name}" right="1" tool_name=""/>
+<xacro:kuka_lwr_arm_gazebo name="lwr"/>
+
+<!-- ==========  End-effector link  ============= -->
+
+<link name="ee_link" />
+
+<joint name="ee_robot_joint" type="fixed">
+    <origin xyz="0.02 0.004 0.44" rpy="0 0 0"/>
+    <parent link="${robot_name}_arm_7_link"/>
+    <child link="ee_link"/>
+</joint>
+
+
+<!-- ===============   Gripper  ================= -->
+<xacro:windshield_gripper parent="${robot_name}_arm_7_link" name="windshield_gripper" rotation="0"/>
+
+
+<!-- ===============   Plexiglass  ================= -->
+<link name="plexiglass">
+    <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+            <box size="0.01 0.50 0.38" />
+        </geometry>
+        <material name="LightGrey">
+            <color rgba="0.8 0.8 0.8 0.5"/>
+        </material>
+    </visual>
+</link>
+
+
+<joint name="gripper_object_joint" type="fixed">
+    <origin xyz="0 0 0.19" rpy="0 0 0" />
+    <parent link="windshield_gripper_base_link"/>
+    <child link="plexiglass"/>
+</joint>
+
+
+</robot>

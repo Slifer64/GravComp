@@ -29,6 +29,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   roslib
   io_lib
+  robo_lib
   lwr4p
   ati_sensor
 )
@@ -45,20 +46,22 @@ include_directories(
 )
 
 set(SRC_LIST
-  include/${PROJECT_NAME}/gui/mainwindow.cpp
+  include/${PROJECT_NAME}/gui/mainwindow/mainwindow.cpp
   include/${PROJECT_NAME}/gui/qcustomplot.cpp
-  include/${PROJECT_NAME}/gui/utils.cpp
-  include/${PROJECT_NAME}/gui/view_jpos_dialog.cpp
-  include/${PROJECT_NAME}/gui/view_pose_dialog.cpp
-  include/${PROJECT_NAME}/gui/view_wrench_dialog.cpp
-  include/${PROJECT_NAME}/gui/set_poses_dialog.cpp
+  include/${PROJECT_NAME}/gui/utils/utils.cpp
+  include/${PROJECT_NAME}/gui/view_jpos_dialog/view_jpos_dialog.cpp
+  include/${PROJECT_NAME}/gui/view_pose_dialog/view_pose_dialog.cpp
+  include/${PROJECT_NAME}/gui/view_wrench_dialog/view_wrench_dialog.cpp
+  include/${PROJECT_NAME}/gui/set_poses_dialog/set_poses_dialog.cpp
+  include/${PROJECT_NAME}/gui/btn_act_widget/btn_act_widget.cpp
+  include/${PROJECT_NAME}/gui/btn_act_widget/act_widget.cpp
+  include/${PROJECT_NAME}/gui/btn_act_widget/btn_widget.cpp
 
   src/source_list/grav_comp.cpp
   src/source_list/utils.cpp
   src/source_list/robot/robot.cpp
   src/source_list/robot/lwr4p_robot.cpp
   src/source_list/robot/lwr4p_sim_robot.cpp
-  src/source_list/tool_estimator.cpp
 
   src/main.cpp
 )
@@ -77,6 +80,7 @@ target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   armadillo
   io_lib
+  robo_lib
   lwr4p
   ati_sensor
   ${Qt_LIBRARIES}

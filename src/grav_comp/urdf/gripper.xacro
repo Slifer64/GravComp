@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<robot name="gripper" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <property name="gripper_base_radius" value="0.06"/>
+    <property name="gripper_base_height" value="0.015"/>
+
+    <property name="gripper_palm_length" value="0.15"/>
+    <property name="gripper_palm_width" value="0.1"/>
+    <property name="gripper_palm_height" value="0.02"/>
+
+    <property name="gripper_lfinger_height" value="0.1"/>
+    <property name="gripper_rfinger_height" value="0.08"/>
+
+    <property name="gripper_palmfinger_offset" value="${0.35*gripper_palm_length}"/>
+
+    <material name="Grey">
+        <color rgba="0.4 0.4 0.4 1.0"/>
+    </material>
+
+    <xacro:macro name="gripper" params="parent name rotation">
+
+        <!-- BASE JOINT from parent to gripper base -->
+        <joint name="${parent}_${name}base_joint" type="fixed">
+            <origin xyz="0 0 0" rpy="0 0 ${rotation}"/>
+            <parent link="${parent}"/>
+            <child link="${name}base_link"/>
+        </joint>
+
+        <!-- gripper Base link -->
+        <link name="${name}base_link">
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <cylinder radius="${gripper_base_radius}" length="${gripper_base_height}" />
+                </geometry>
+                <material name="Grey"/>
+            </visual>
+        </link>
+
+
+        <!-- JOINT from base to palm -->
+        <joint name="${name}base_${name}palm_joint" type="fixed">
+            <origin xyz="0 0 ${0.5*gripper_base_height}" rpy="0 0 0"/>
+            <parent link="${name}base_link"/>
+            <child link="${name}palm_link"/>
+        </joint>
+
+        <!-- gripper palm link -->
+        <link name="${name}palm_link">
+            <visual>
+                <origin xyz="0 0 ${0.5*gripper_palm_height}" rpy="0 0 0" />
+                <geometry>
+                    <box size="${gripper_palm_length} ${gripper_palm_width} ${gripper_palm_height}" />
+                </geometry>
+                <material name="Grey"/>
+            </visual>
+        </link>
+
+
+        <!-- JOINT from palm left finger -->
+        <joint name="${name}palm_${name}lfinger_joint" type="fixed">
+            <origin xyz="0 0 ${0.5*gripper_palm_height}" rpy="0 0 0"/>
+            <parent link="${name}palm_link"/>
+            <child link="${name}lfinger_link"/>
+        </joint>
+
+        <!-- gripper left finger link -->
+        <link name="${name}lfinger_link">
+            <visual>
+                <origin xyz="${gripper_palmfinger_offset} 0 ${0.5*gripper_lfinger_height}" rpy="0 0 0" />
+                <geometry>
+                    <box size="0.015 ${1.2*gripper_base_radius} ${gripper_lfinger_height}" />
+                </geometry>
+                <material name="Grey"/>
+            </visual>
+        </link>
+
+
+
+        <!-- JOINT from palm right finger -->
+        <joint name="${name}palm_${name}rfinger_joint" type="fixed">
+            <origin xyz="0 0 ${0.5*gripper_palm_height}" rpy="0 0 0"/>
+            <parent link="${name}palm_link"/>
+            <child link="${name}rfinger_link"/>
+        </joint>
+
+        <!-- gripper right finger link -->
+        <link name="${name}rfinger_link">
+            <visual>
+                <origin xyz="-${gripper_palmfinger_offset} 0 ${0.5*gripper_rfinger_height}" rpy="0 0 0" />
+                <geometry>
+                    <box size="0.015 ${1.2*gripper_base_radius} ${gripper_rfinger_height}" />
+                </geometry>
+                <material name="Grey"/>
+            </visual>
+        </link>
+
+
+    </xacro:macro>
+
+</robot>

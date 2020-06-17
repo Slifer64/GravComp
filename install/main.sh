@@ -14,7 +14,7 @@ COLOR_RESET="\033[0m"
 cd $INSTALL_SCRIPTS_DIR
 AS64_ERROR=0
 
-declare -a arr=("frilibrary" "ati_sensor") # "frilibrary" "ati_sensor" "qt5" "eigen3" "armadillo")
+declare -a arr=("armadillo") # "frilibrary" "ati_sensor" "qt5" "eigen3" "armadillo")
 
 echo -e $COLOR_BLUE"Installing as64_ws..."$COLOR_RESET
 
@@ -35,9 +35,5 @@ do
   fi
   sleep 4
 done
-
-cd $INSTALL_SCRIPTS_DIR
-rm -rf deps/
-cd ..
 
 echo -e $COLOR_GREEN"as64_ws Packages Successfully installed!"$COLOR_RESET

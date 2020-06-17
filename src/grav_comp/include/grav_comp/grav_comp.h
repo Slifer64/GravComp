@@ -10,8 +10,7 @@
 #include <Eigen/Dense>
 
 #include <grav_comp/robot/robot.h>
-#include <grav_comp/gui/mainwindow.h>
-#include <grav_comp/tool_estimator.h>
+#include <grav_comp/gui/mainwindow/mainwindow.h>
 
 class GravComp
 {
@@ -51,7 +50,6 @@ protected:
   std::vector<Eigen::Quaterniond> Quat_data;
   arma::vec CoM;
   double mass;
-  ToolEstimator tool_estimator;
   bool is_CoM_calculated;
 
   // robot

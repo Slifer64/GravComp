@@ -15,20 +15,28 @@
 #include <grav_comp/robot/lwr4p_sim_robot.h>
 
 #include <io_lib/io_utils.h>
-#include <io_lib/parser.h>
+#include <io_lib/xml_parser.h>
 
 using namespace as64_;
 
 GravComp::GravComp()
 {
+
   is_CoM_calculated = false;
 
   ros::NodeHandle nh("~");
   if (!nh.getParam("robot_type", robot_type)) throw std::ios_base::failure("[GravComp::GravComp]: Failed to read \"robot_type\" param.");
 
-  if (robot_type.compare("lwr4p")==0) robot.reset(new LWR4p_Robot(&tool_estimator));
-  else if (robot_type.compare("lwr4p_sim")==0) robot.reset(new LWR4p_Sim_Robot(&tool_estimator));
+  bool use_sim;
+  if (!nh.getParam("use_sim", use_sim)) throw std::ios_base::failure("[MainController::MainController]: Failed to read \"use_sim\" param.");
+  if (robot_type.compare("lwr4p")==0)
+  {
+    if (use_sim) robot.reset(new LWR4p_Sim_Robot());
+    else robot.reset(new LWR4p_Robot());
+  }
   else throw std::runtime_error("Unsupported robot type \"" + robot_type + "\".");
+
+  robot->setToolEstimator("");
 
   std::vector<double> ee_tool_rot;
   if (nh.getParam("ee_tool_rot", ee_tool_rot))
@@ -85,19 +93,6 @@ void GravComp::setMode(Robot::Mode mode)
 ExecResultMsg GravComp::recPredefPoses()
 {
   ExecResultMsg msg;
-
-//  // =====  read poses  =====
-//  poses.clear();
-//  std::string path = ros::package::getPath(PACKAGE_NAME) + "/config/predef_poses.yaml";
-//  io_::Parser parser(path);
-//  std::vector<double> pose;
-//  int k = 0;
-//  while (true)
-//  {
-//    std::string pose_name = "pose" + (QString::number(++k)).toStdString();
-//    if (!parser.getParam(pose_name, pose)) break;
-//    poses.push_back(arma::vec(pose));
-//  }
 
   std::vector<arma::vec> poses = gui->getPredefPoses();
 
@@ -201,14 +196,15 @@ ExecResultMsg GravComp::calcCoM()
 {
   ExecResultMsg msg;
 
+  if (Wrench_data.size() < 3) return ExecResultMsg(ExecResultMsg::ERROR, "At least 3 measurements are required!");
+
   try{
-    if (Wrench_data.size() < 3) throw std::runtime_error("At least 3 measurements are required!");
 
-    tool_estimator.estimatePayload(Wrench_data, Quat_data);
+    robot->tool_estimator->estimatePayload(Wrench_data, Quat_data);
 
-    mass = tool_estimator.getMass();
+    mass = robot->tool_estimator->getMass();
     CoM.resize(3);
-    Eigen:: Vector3d est_CoM = tool_estimator.getCoM();
+    Eigen:: Vector3d est_CoM = robot->tool_estimator->getCoM();
     CoM(0) = est_CoM(0);
     CoM(1) = est_CoM(1);
     CoM(2) = est_CoM(2);
@@ -227,7 +223,7 @@ ExecResultMsg GravComp::calcCoM()
         est_CoM(i) = CoM(i) = 0;
       }
     }
-    tool_estimator.setCoM(est_CoM);
+    robot->tool_estimator->setCoM(est_CoM);
 
     is_CoM_calculated = true;
 
@@ -238,9 +234,7 @@ ExecResultMsg GravComp::calcCoM()
   }
   catch(std::exception &e)
   {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg(std::string("Error calculating CoM:\n") + e.what());
-    return msg;
+    return ExecResultMsg(ExecResultMsg::ERROR, std::string("Error calculating CoM:\n") + e.what());
   }
 
 }
@@ -361,8 +355,8 @@ ExecResultMsg GravComp::loadCoMData(const std::string &path)
 
     Eigen::Vector3d est_CoM;
     est_CoM << CoM(0), CoM(1), CoM(2);
-    tool_estimator.setCoM(est_CoM);
-    tool_estimator.setMass(mass);
+    robot->tool_estimator->setCoM(est_CoM);
+    robot->tool_estimator->setMass(mass);
 
     msg.setType(ExecResultMsg::INFO);
     msg.setMsg("The CoM data were successfully loaded!\n\n" + oss.str());
@@ -544,7 +538,7 @@ ExecResultMsg GravComp::loadWrenchOrientData(const std::string &path)
     }
     else if (file_fmt==FileFormat::YAML)
     {
-      io_::Parser parser(path);
+      io_::XmlParser parser(path);
 
       int N_data;
       if (!parser.getParam("N",N_data))

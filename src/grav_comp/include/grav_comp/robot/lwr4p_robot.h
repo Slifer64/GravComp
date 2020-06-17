@@ -1,20 +1,25 @@
-#ifndef GRAVITY_COMPENSATION_LWR4P_ROBOT_H
-#define GRAVITY_COMPENSATION_LWR4P_ROBOT_H
+#ifndef $_PROJECT_384$_LWR4P_ROBOT_H
+#define $_PROJECT_384$_LWR4P_ROBOT_H
 
 #include <grav_comp/robot/robot.h>
-#include <lwr4p/Robot.h>
+#include <lwr4p/lwr4p_robot.h>
 #include <ati_sensor/ft_sensor.h>
 
 class LWR4p_Robot: public Robot
 {
 public:
-  LWR4p_Robot(const ToolEstimator *tool_est);
+  LWR4p_Robot();
   ~LWR4p_Robot();
 
   void commandThread();
 
+  void setWrenchBias() { ftsensor.setBias(); }
+
   int getNumOfJoints() const
   { return N_JOINTS; }
+
+  arma::vec getJointPosLowLim() const { return jpos_low_lim; }
+  arma::vec getJointPosUpperLim() const { return jpos_upper_lim; }
 
   std::string getErrMsg() const
   {
@@ -51,13 +56,9 @@ public:
     Fext(4) = measurements[4];
     Fext(5) = measurements[5];
 
-
-    // arma::mat R = robot->getTaskOrientation();
-    // arma::mat Tf = Robot::get6x6Rotation( R * Robot::rotY(M_PI/2.0) * Robot::rotZ(M_PI) );
-    // Fext = Tf*Fext;
-
-    // Fext.subvec(0,2) = R*Fext.subvec(0,2);
-    // Fext.subvec(3,5) = R*Fext.subvec(3,5);
+    arma::mat R = this->getTaskRotMat();
+    Fext.subvec(0,2) = R*Fext.subvec(0,2);
+    Fext.subvec(3,5) = R*Fext.subvec(3,5);
 
     // arma::vec Fext(6);
     // Fext = robot->getExternalWrench();
@@ -72,18 +73,29 @@ public:
     Eigen::Map<Eigen::Matrix<double,6,1>> wrench_map(wrench.memptr());
     arma::vec quat(4);
 
-    wrench = this->getTaskWrench();
-    quat = getTaskOrientation();
+    // wrench = this->getTaskWrench();
+    static double measurements[6];
+    uint32_t rdt(0),ft(0);
+    (const_cast<ati::FTSensor *>(&ftsensor))->getMeasurements(measurements,rdt,ft);
+    wrench(0) = measurements[0];
+    wrench(1) = measurements[1];
+    wrench(2) = measurements[2];
+    wrench(3) = measurements[3];
+    wrench(4) = measurements[4];
+    wrench(5) = measurements[5];
+
+    quat = this->getTaskOrientation();
     Eigen::Vector6d tool_wrench = tool_estimator->getToolWrench(Eigen::Quaterniond(quat(0),quat(1),quat(2),quat(3)));
     wrench_map -= tool_wrench;
+
+    arma::mat R = this->getTaskRotMat();
+    wrench.subvec(0,2) = R*wrench.subvec(0,2);
+    wrench.subvec(3,5) = R*wrench.subvec(3,5);
 
     return wrench;
   }
 
-  arma::vec getEstimatedTaskWrench() const
-  {
-    return robot->getExternalWrench();
-  }
+  arma::vec getEstimatedTaskWrench() const { return robot->getExternalWrench(); }
 
   arma::vec getJointsPosition() const
   { return robot->getJointPosition(); }
@@ -126,7 +138,7 @@ public:
   { return jnames; }
 
 private:
-  std::shared_ptr<lwr4p::Robot> robot;
+  std::shared_ptr<lwr4p::LWR4pRobot> robot;
   ati::FTSensor ftsensor;
 
   bool is_ok;
@@ -144,4 +156,4 @@ private:
   std::vector<std::string> jnames;
 };
 
-#endif // GRAVITY_COMPENSATION_LWR4P_ROBOT_H
+#endif // $_PROJECT_384$_LWR4P_ROBOT_H

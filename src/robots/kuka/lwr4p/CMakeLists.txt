@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   roslib
   kdl_parser
   std_msgs
+  sensor_msgs
 )
 
 link_libraries(pthread)
@@ -26,7 +27,10 @@ include_directories(include
   ${catkin_INCLUDE_DIRS})
 
 add_library(lwr4p
-  src/lwr4p/Robot.cpp
+        src/lwr4p/robot.cpp
+        src/lwr4p/lwr4p_robot.cpp
+        src/lwr4p/lwr4p_sim_robot.cpp
+        src/lwr4p/utils.cpp
   # src/lwr4p/Model.cpp
 )
 

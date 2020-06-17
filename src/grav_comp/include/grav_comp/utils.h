@@ -50,7 +50,7 @@ public:
       ERROR
   };
 
-  ExecResultMsg() { type=ExecResultMsg::INFO; msg=""; }
+  ExecResultMsg(ExecResultMsg::TYPE type=ExecResultMsg::INFO, const std::string &msg="") { this->type=type; this->msg=msg; }
 
   std::string getMsg() const { return msg; }
   void setMsg(const std::string &msg) { this->msg = msg; }
