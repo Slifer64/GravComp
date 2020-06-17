@@ -2,6 +2,8 @@
 ## matlab
 ##---------------------------------------------------
 
+src/CMakeLists.txt
+
 # ignore logged *.bin and *.txt *.dat and *.mat files
 #data/*.bin
 #data/*.txt
