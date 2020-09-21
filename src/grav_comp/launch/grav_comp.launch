@@ -2,13 +2,28 @@
 
 <launch>
 
-    <arg name="node_name" default="grav_comp_node" />
-    <node pkg="grav_comp" type="grav_comp" name="$(arg node_name)"
+    <!-- robot model -->
+    <arg name="limited" default="false"/>
+    <param unless="$(arg limited)" name="robot_description" command="$(find xacro)/xacro.py '$(find grav_comp)/urdf/ur5_robot.urdf.xacro' limited:=$(arg limited)" />
+
+    <node pkg="grav_comp" type="grav_comp" name="grav_comp_node"
           output="screen" cwd="node">
 
+          <param name="robot_ip" type="string" value="10.0.0.1" />
+
           <rosparam>
-            robot_type: "lwr4p"
+            robot_type: "ur"
             CoM_filename: "CoM.yaml"
+
+
+            use_sim: true
+            use_ati: false
+
+            ee_tool_rot: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+
+            robot_description_name: "/robot_description"
+            base_link: "ur5_base_link"
+            tool_link: "ur5_tool0"
           </rosparam>
 
     </node>

@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+
+<launch>
+
+    <!-- Launch visualization in rviz -->
+    <arg name="rvizconfig" default="$(find ur_robot)/rviz/ur_cfg.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)"/>
+
+</launch>

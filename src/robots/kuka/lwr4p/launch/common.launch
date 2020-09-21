@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<launch>
+
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" required="true">
+    <rosparam>
+      source_list: ["/robot_joint_states"]
+      rate: 50
+      use_gui: true
+    </rosparam>
+  </node>
+
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" required="true"/>
+
+  <node name="rviz" pkg="rviz" type="rviz" respawn="false" args="-d $(find bhand)/rviz/config.rviz" output="screen" required="true"/>
+
+
+</launch>

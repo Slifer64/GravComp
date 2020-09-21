@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+
+<launch>
+
+    <!-- Start optoforce sensor -->
+    <include file="$(find optoforce_ros)/launch/optoforce_node.launch">
+      <arg name="config_file" value="$(find ur_robot)/config/optoforce_config.yml" />
+    </include>
+
+</launch>

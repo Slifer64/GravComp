@@ -1,9 +1,14 @@
 #include <grav_comp/robot/robot.h>
 #include <ros/package.h>
-#include <io_lib/parser.h>
+#include <io_lib/xml_parser.h>
+#include <math_lib/math_lib.h>
 
-Robot::Robot(const ToolEstimator *tool_est):tool_estimator(tool_est)
+Robot::Robot()
 {
+
+  vel_CLIK = 2;
+  rotVel_CLIK = 0.8;
+
   mode_name.resize(6);
   mode_name[0] = "JOINT_POS_CONTROL";
   mode_name[1] = "JOINT_TORQUE_CONTROL";
@@ -11,11 +16,90 @@ Robot::Robot(const ToolEstimator *tool_est):tool_estimator(tool_est)
   mode_name[3] = "FREEDRIVE";
   mode_name[4] = "IDLE";
   mode_name[5] = "STOPPED";
+
+  R_et = arma::mat().eye(3,3);
+
+  tool_estimator.reset(new robo_::ToolEstimator);
+
+  use_svf = false;
+  use_jlav = false;
+  emergency_stop = false;
+
+  Fext_dead_zone = arma::vec().zeros(6);
+  af = 0;
+
+  global_time_sec = 0;
 }
 
 Robot::~Robot()
 {
 
+}
+
+void Robot::setVelCLICK(double vel_click, double rotVel_click)
+{
+  vel_CLIK = vel_click;
+  rotVel_CLIK = rotVel_click;
+}
+
+arma::vec Robot::getCompTaskWrench() const
+{
+  arma::mat R = this->getTaskRotMat();
+  arma::vec tool_wrench = tool_estimator->getToolWrench(R);
+  tool_wrench.subvec(0,2) = R*tool_wrench.subvec(0,2);
+  tool_wrench.subvec(3,5) = R*tool_wrench.subvec(3,5);
+
+  return applyFextDeadZone( getTaskWrench() - tool_wrench );
+}
+
+void Robot::setTaskVelocity(const arma::vec &vel, const arma::vec &pos, const arma::vec &quat)
+{
+  arma::vec robot_pos = this->getTaskPosition();
+  arma::vec robot_quat = this->getTaskOrientation();
+  if (arma::dot(robot_quat,quat)<0) robot_quat = -robot_quat;
+
+  arma::vec vel_click = vel;
+  vel_click.subvec(0,2) += vel_CLIK*(pos - robot_pos);
+  vel_click.subvec(3,5) += rotVel_CLIK*math_::quatLog(math_::quatProd(quat, math_::quatInv(robot_quat)));
+
+  this->setTaskVelocity(vel_click);
+}
+
+arma::vec Robot::applyFextDeadZone(const arma::vec &F_ext) const
+{
+  arma::vec sign_Fext = arma::sign(F_ext);
+  arma::vec Fext2 = F_ext - sign_Fext%Fext_dead_zone();
+  return 0.5*(arma::sign(Fext2)+sign_Fext)%arma::abs(Fext2);
+}
+
+void Robot::setToolEstimator(const std::string &tool_massCoM_file)
+{
+  tool_estimator.reset(new robo_::ToolEstimator);
+  tool_estimator->initFromFile(tool_massCoM_file);
+}
+
+void Robot::setToolEstimator(const robo_::ToolEstimator &tool_est_)
+{
+  this->tool_estimator->setMass(tool_est_.getMass());
+  this->tool_estimator->setCoM(tool_est_.getCoM());
+}
+
+void Robot::setSVFilt(double sigma_min, double shape_f)
+{
+  svf.reset(new robo_::SingularValueFilter(sigma_min, shape_f));
+
+  use_svf = true;
+}
+
+void Robot::setJLAV(double gain, double jlim_safety_margin)
+{
+  jlim_safety_margin *= 3.14159/180;
+  arma::vec q_min = this->getJointPosLowLim() + jlim_safety_margin;
+  arma::vec q_max = this->getJointPosUpperLim() - jlim_safety_margin;
+  jlav.reset(new robo_::PPCJointLimAvoid(q_min, q_max));
+  jlav->setGains(gain);
+
+  use_jlav = true;
 }
 
 Robot::Mode Robot::getMode() const
@@ -85,3 +169,65 @@ arma::mat Robot::get5thOrder(double t, arma::vec p0, arma::vec pT, double totalT
   // return vector
   return retTemp;
 }
+
+arma::vec Robot::quatProd(const arma::vec &quat1, const arma::vec &quat2)
+{
+  arma::vec quat12(4);
+
+  double n1 = quat1(0);
+  arma::vec e1 = quat1.subvec(1,3);
+
+  double n2 = quat2(0);
+  arma::vec e2 = quat2.subvec(1,3);
+
+  quat12(0) = n1*n2 - arma::dot(e1,e2);
+  quat12.subvec(1,3) = n1*e2 + n2*e1 + arma::cross(e1,e2);
+
+  return quat12;
+}
+
+arma::vec Robot::quatExp(const arma::vec &v_rot, double zero_tol)
+{
+  arma::vec quat(4);
+  double norm_v_rot = arma::norm(v_rot);
+  double theta = norm_v_rot;
+
+  if (norm_v_rot > zero_tol)
+  {
+    quat(0) = std::cos(theta/2);
+    quat.subvec(1,3) = std::sin(theta/2)*v_rot/norm_v_rot;
+  }
+  else{
+    quat << 1 << 0 << 0 << 0;
+  }
+
+  return quat;
+}
+
+arma::vec Robot::quatLog(const arma::vec &quat, double zero_tol)
+{
+  arma::vec e = quat.subvec(1,3);
+  double n = quat(0);
+
+  if (n > 1) n = 1;
+  if (n < -1) n = -1;
+
+  arma::vec omega(3);
+  double e_norm = arma::norm(e);
+
+  if (e_norm > zero_tol) omega = 2*std::atan2(e_norm,n)*e/e_norm;
+  else omega = arma::vec().zeros(3);
+
+  return omega;
+}
+
+arma::vec Robot::quatInv(const arma::vec &quat)
+{
+  arma::vec quatI(4);
+
+  quatI(0) = quat(0);
+  quatI.subvec(1,3) = - quat.subvec(1,3);
+
+  return quatI;
+}
+

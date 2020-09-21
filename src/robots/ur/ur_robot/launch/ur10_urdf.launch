@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+
+<launch>
+
+  <arg name="limited" default="false"/>
+  <param unless="$(arg limited)" name="robot_description" command="$(find xacro)/xacro.py '$(find ur_description)/urdf/ur10_robot.urdf.xacro' limited:=$(arg limited)" />
+
+<!--  <node name="robot_state_publisher1" pkg="robot_state_publisher" type="state_publisher" required="true"/>-->
+
+  <!-- <node name="joint_state_publisher1" pkg="joint_state_publisher" type="joint_state_publisher" args="_use_gui:=true" /> -->
+
+  <!-- <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" required="true">
+          <<rosparam param="source_list" subst_value="true">[$(arg publish_states_topic)]</rosparam>
+          <rosparam>
+              rate: 30
+              use_gui: false
+          </rosparam>
+      </node> -->
+
+  <!-- Launch visualization in rviz -->
+  <arg name="rvizconfig" default="$(find ur_robot)/rviz/ur10_cfg.rviz" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true"/>
+
+</launch>

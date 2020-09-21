@@ -7,37 +7,80 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <csignal>
 
 #include <ros/ros.h>
 #include <ros/package.h>
 
+#include <grav_comp/robot/ur_robot.h>
 #include <grav_comp/robot/lwr4p_robot.h>
-#include <grav_comp/robot/lwr4p_sim_robot.h>
 
 #include <io_lib/io_utils.h>
-#include <io_lib/parser.h>
+#include <io_lib/xml_parser.h>
 
 using namespace as64_;
+
+#define GravComp_fun_ std::string("[GravComp::") + __func__ + "]: "
 
 GravComp::GravComp()
 {
   is_CoM_calculated = false;
 
   ros::NodeHandle nh("~");
-  if (!nh.getParam("robot_type", robot_type)) throw std::ios_base::failure("[GravComp::GravComp]: Failed to read \"robot_type\" param.");
 
-  if (robot_type.compare("lwr4p")==0) robot.reset(new LWR4p_Robot(&tool_estimator));
-  else if (robot_type.compare("lwr4p_sim")==0) robot.reset(new LWR4p_Sim_Robot(&tool_estimator));
+  if (!nh.getParam("robot_type", robot_type)) throw std::ios_base::failure(GravComp_fun_ + "Failed to read \"robot_type\" param.");
+  bool use_sim;
+  if (!nh.getParam("use_sim", use_sim)) throw std::ios_base::failure(GravComp_fun_ + "Failed to read \"use_sim\" param.");
+
+  if (robot_type.compare("lwr4p")==0) robot.reset(new LWR4p_Robot(use_sim));
+  else if (robot_type.compare("ur")==0) robot.reset(new Ur_Robot(use_sim));
   else throw std::runtime_error("Unsupported robot type \"" + robot_type + "\".");
+
+  // check whether to publish joint states
+  bool pub_jstates_flag = false;
+  if (nh.getParam("pub_jstates_flag", pub_jstates_flag) && pub_jstates_flag)
+  {
+    std::string pub_jstates_topic;
+    if (!nh.getParam("publish_jstates_topic", pub_jstates_topic)) throw std::runtime_error("Failed to load param \"pub_jstates_topic\"...");
+    robot->publishJointStates(pub_jstates_topic);
+  }
+
+  // =======  check whether to use ati-sensor  =======
+  bool use_ati_sensor = false;
+  if (nh.getParam("use_ati_sensor", use_ati_sensor) && use_ati_sensor)
+  {
+    robot->useAtiSensor();
+    bool set_wrench_bias = false;
+    if (!nh.getParam("set_wrench_bias", set_wrench_bias) && set_wrench_bias) robot->setWrenchBias();
+  }
+
+  std::string tool_massCoM_file;
+  std::string tool_param_name = "tool_massCoM_file";
+  if (use_sim) tool_param_name = "dummy_tool_massCoM_file";
+  if (nh.getParam(tool_param_name.c_str(), tool_massCoM_file))
+  {
+    tool_massCoM_file = ros::package::getPath("grav_comp") + "/" + tool_massCoM_file;
+    robot->setToolEstimator(tool_massCoM_file);
+  }
+
+  // register signal SIGINT and signal handler
+  signal(SIGINT, GravComp::closeGUI);
 }
 
 GravComp::~GravComp()
 {
   if (robot->isOk()) robot->stop();
 
-  std::cerr << "[GravComp::~GravComp]: Waiting to be notified...\n";
+  std::cerr << GravComp_fun_ + "Waiting to be notified...\n";
   finish_sem.wait(); // wait for gui to finish
-  std::cerr << "[GravComp::~GravComp]: Got notification!\n";
+  std::cerr << GravComp_fun_ + "Got notification!\n";
+}
+
+MainWindow *GravComp::gui_ = 0;
+
+void GravComp::closeGUI(int)
+{
+  emit GravComp::gui_->closeSignal();
 }
 
 void GravComp::launch()
@@ -47,26 +90,13 @@ void GravComp::launch()
   QApplication app(argc, argv);
   QThread::currentThread()->setPriority(QThread::LowestPriority);
   this->gui = new MainWindow(this->robot.get(), this);
+  GravComp::gui_ = this->gui;
   this->gui->show();
   this->start_sem.notify();
   app.exec();
-  std::cerr << "[GravComp::launch]: Notifying!\n";
+  std::cerr << GravComp_fun_ + "Notifying!\n";
   this->finish_sem.notify();
   delete (this->gui); // must be destructed in this thread!
-}
-
-void GravComp::checkRobot()
-{
-  while (gui->isRunning())
-  {
-    if (!robot->isOk())
-    {
-      gui->robotNotOkSignal("An error occured on the robot!");
-      break;
-    }
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-  }
 }
 
 void GravComp::setMode(Robot::Mode mode)
@@ -76,29 +106,9 @@ void GravComp::setMode(Robot::Mode mode)
 
 ExecResultMsg GravComp::recPredefPoses()
 {
-  ExecResultMsg msg;
-
-//  // =====  read poses  =====
-//  poses.clear();
-//  std::string path = ros::package::getPath(PACKAGE_NAME) + "/config/predef_poses.yaml";
-//  io_::Parser parser(path);
-//  std::vector<double> pose;
-//  int k = 0;
-//  while (true)
-//  {
-//    std::string pose_name = "pose" + (QString::number(++k)).toStdString();
-//    if (!parser.getParam(pose_name, pose)) break;
-//    poses.push_back(arma::vec(pose));
-//  }
-
   std::vector<arma::vec> poses = gui->getPredefPoses();
 
-  if (poses.size() == 0)
-  {
-    msg.setType(ExecResultMsg::WARNING);
-    msg.setMsg("No predefined poses where specified...");
-    return msg;
-  }
+  if (poses.size() == 0) return ExecResultMsg(ExecResultMsg::ERROR, "No predefined poses where specified...");
 
   // =====  Move to each pose and record wrench-quat  =====
   Robot::Mode prev_mode = robot->getMode(); // store current robot mode
@@ -127,20 +137,14 @@ ExecResultMsg GravComp::recPredefPoses()
   }
   robot->setMode(prev_mode); // restore previous robot mode
 
-  msg.setType(ExecResultMsg::INFO);
-  msg.setMsg("Finished recording!");
-  return msg;
+  return ExecResultMsg(ExecResultMsg::INFO, "Finished recording!");
 
   rec_poses_interrupt:
-  msg.setType(ExecResultMsg::WARNING);
-  msg.setMsg("Recording was interrupted!");
-  return msg;
+  return ExecResultMsg(ExecResultMsg::WARNING, "Recording was interrupted!");
 }
 
 ExecResultMsg GravComp::recordCurrentWrenchQuat()
 {
-  ExecResultMsg msg;
-
   try
   {
     arma::vec wrench_temp = arma::vec().zeros(6);
@@ -165,45 +169,28 @@ ExecResultMsg GravComp::recordCurrentWrenchQuat()
     wrench(0),wrench(1),wrench(2),wrench(3),wrench(4),wrench(5),
     quat(0),quat(1),quat(2),quat(3));
 
-    msg.setType(ExecResultMsg::INFO);
-    msg.setMsg(std::string("Recorded current wrench and orientation!\n")+msg2);
-    return msg;
+    return ExecResultMsg(ExecResultMsg::INFO, std::string("Recorded current wrench and orientation!\n")+msg2);
   }
   catch(std::exception &e)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg(std::string("Error recording current wrench and orientation:\n") + e.what());
-    return msg;
-  }
+  { return ExecResultMsg(ExecResultMsg::ERROR, std::string("Error recording current wrench and orientation:\n") + e.what()); }
 }
 
 ExecResultMsg GravComp::clearWrenchQuatData()
 {
-  ExecResultMsg msg;
-
   Wrench_data.clear();
   Quat_data.clear();
-
-  msg.setType(ExecResultMsg::INFO);
-  msg.setMsg("Cleared all recorded data!");
-  return msg;
+  return ExecResultMsg(ExecResultMsg::INFO, "Cleared all recorded data!");
 }
 
 ExecResultMsg GravComp::calcCoM()
 {
-  ExecResultMsg msg;
-
   try{
     if (Wrench_data.size() < 3) throw std::runtime_error("At least 3 measurements are required!");
 
     tool_estimator.estimatePayload(Wrench_data, Quat_data);
 
     mass = tool_estimator.getMass();
-    CoM.resize(3);
-    Eigen:: Vector3d est_CoM = tool_estimator.getCoM();
-    CoM(0) = est_CoM(0);
-    CoM(1) = est_CoM(1);
-    CoM(2) = est_CoM(2);
+    CoM = tool_estimator.getCoM(true);
 
     std::ostringstream oss;
     oss << "mass: " << mass << "\n";
@@ -216,190 +203,79 @@ ExecResultMsg GravComp::calcCoM()
       {
         is_nan = true;
         oss << "Warning: CoM(" << (QString::number(i)).toStdString() << ")=nan will be set to zero.\n";
-        est_CoM(i) = CoM(i) = 0;
+        CoM(i) = 0;
       }
     }
-    tool_estimator.setCoM(est_CoM);
+    tool_estimator.setCoM(CoM);
+
+    robot->setToolEstimator(tool_estimator);
 
     is_CoM_calculated = true;
 
+    ExecResultMsg msg;
     if (is_nan) msg.setType(ExecResultMsg::WARNING);
     else msg.setType(ExecResultMsg::INFO);
     msg.setMsg("The CoM was calculated!\n" + oss.str());
     return msg;
   }
   catch(std::exception &e)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg(std::string("Error calculating CoM:\n") + e.what());
-    return msg;
-  }
-
+  { return ExecResultMsg(ExecResultMsg::ERROR, std::string("Error calculating CoM:\n") + e.what()); }
 }
 
 ExecResultMsg GravComp::saveCoMData(const std::string &save_path)
 {
-  ExecResultMsg msg;
+  if (!is_CoM_calculated) return ExecResultMsg(ExecResultMsg::ERROR, "The tool dynamics have not been calculated!");
 
-  if (!is_CoM_calculated)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("The tool dynamics have not been calculated!");
-    return msg;
-  }
-
-  std::string suffix;
-  FileFormat file_fmt = getFileFormat(save_path, &suffix);
-
-  if (file_fmt == FileFormat::UNKNOWN)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Unknown file format \"" + suffix + "\"...\n");
-    return msg;
-  }
-
-  std::ofstream out;
-  if (file_fmt == FileFormat::BIN) out.open(save_path.c_str(), std::ios::out|std::ios::binary);
-  else out.open(save_path.c_str(), std::ios::out);
-
-  if (!out)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Failed to create file \"" + save_path + "\".");
-    return msg;
-  }
+  std::ofstream out(save_path.c_str(), std::ios::out);
+  if (!out) return ExecResultMsg(ExecResultMsg::ERROR, "Failed to create file \"" + save_path + "\".");
 
   try
   {
-    if (file_fmt == FileFormat::BIN)
-    {
-      io_::write_scalar(static_cast<double>(mass), out, true);
-      io_::write_mat(CoM, out, true);
-    }
-    else if (file_fmt == FileFormat::TXT)
-    {
-      out << "mass: " << mass << "\n";
-      out << "CoM: " << CoM(0) << " , " << CoM(1) << " , " << CoM(2) << "\n";
-    }
-    else if (file_fmt == FileFormat::YAML)
-    {
-      out << "mass: " << mass << "\n";
-      out << "CoM: [ " << CoM(0) << " , " << CoM(1) << " , " << CoM(2) << " ]\n";
-    }
+    out << "mass: " << mass << "\n";
+    out << "CoM: [ " << CoM(0) << "; " << CoM(1) << "; " << CoM(2) << " ]\n";
     out.close();
-
-    msg.setType(ExecResultMsg::INFO);
-    msg.setMsg("The CoM data were successfully saved!");
-    return msg;
+    return ExecResultMsg(ExecResultMsg::INFO, "The CoM data were successfully saved!");
   }
   catch (std::exception &e)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg(std::string("Error writing data:\n") + e.what());
-    return msg;
-  }
+  { return ExecResultMsg(ExecResultMsg::ERROR, std::string("Error writing data:\n") + e.what()); }
 
 }
 
 ExecResultMsg GravComp::loadCoMData(const std::string &path)
 {
-  ExecResultMsg msg;
-
-  std::string suffix;
-  FileFormat file_fmt = getFileFormat(path, &suffix);
-
-  if (file_fmt == FileFormat::UNKNOWN)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Unknown file format \"" + suffix + "\"...\n");
-    return msg;
-  }
-
-  std::ifstream in;
-  if (file_fmt == FileFormat::BIN) in.open(path.c_str(), std::ios::in|std::ios::binary);
-  else in.open(path.c_str(), std::ios::in);
-  if (!in)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Failed to open file \"" + path + "\".");
-    return msg;
-  }
-
   CoM.resize(3);
 
   try
   {
-    if (file_fmt == FileFormat::BIN)
-    {
-      io_::read_scalar(mass, in, true);
-      io_::read_mat(CoM, in, true);
-    }
-    else if (file_fmt == FileFormat::TXT)
-    {
-      std::string temp;
-      in >> temp >> mass >> temp >> CoM(0) >> temp >> CoM(1) >> temp >> CoM(2);
-    }
-    else if (file_fmt == FileFormat::YAML)
-    {
-      std::string temp;
-      in >> temp >> mass >> temp >> temp >> CoM(0) >> temp >> CoM(1) >> temp >> CoM(2);
-    }
-    is_CoM_calculated = true;
-    in.close();
+    io_::XmlParser parser(path);
+    if (!parser.getParam("mass", mass)) throw std::runtime_error("Failed to read param \"mass\"...");
+    if (!parser.getParam("CoM", CoM)) throw std::runtime_error("Failed to read param \"CoM\"...");
 
-    std::ostringstream oss;
-    oss << "mass: " << mass << "\n";
-    oss << "CoM: " << CoM.t() << "\n";
+    is_CoM_calculated = true;
 
     Eigen::Vector3d est_CoM;
     est_CoM << CoM(0), CoM(1), CoM(2);
     tool_estimator.setCoM(est_CoM);
     tool_estimator.setMass(mass);
 
-    msg.setType(ExecResultMsg::INFO);
-    msg.setMsg("The CoM data were successfully loaded!\n\n" + oss.str());
-    return msg;
+    robot->setToolEstimator(tool_estimator);
+
+    std::ostringstream oss;
+    oss << "mass: " << mass << "\n";
+    oss << "CoM: " << CoM.t() << "\n";
+
+    return ExecResultMsg(ExecResultMsg::INFO, "The CoM data were successfully loaded!\n\n" + oss.str());
   }
   catch (std::exception &e)
-  {
-    in.close();
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Error reading CoM data!\nThe file may be corrupted...");
-    return msg;
-  }
+  { return ExecResultMsg(ExecResultMsg::ERROR, std::string("Error reading CoM data:") + e.what()); }
 }
 
 ExecResultMsg GravComp::saveWrenchOrientData(const std::string &path)
 {
-  ExecResultMsg msg;
+  if (Wrench_data.size() == 0) return ExecResultMsg(ExecResultMsg::ERROR, "No data are recorded!");
 
-  if (Wrench_data.size() == 0)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("No data are recorded!");
-    return msg;
-  }
-
-  std::string suffix;
-  FileFormat file_fmt = getFileFormat(path, &suffix);
-
-  if (file_fmt == FileFormat::UNKNOWN)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Unknown file format \"" + suffix + "\"...\n");
-    return msg;
-  }
-
-  std::ofstream out;
-  if (file_fmt == FileFormat::BIN) out.open(path.c_str(), std::ios::out|std::ios::binary);
-  else out.open(path.c_str(), std::ios::out);
-
-  if (!out)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Failed to create file \"" + path + "\".");
-    return msg;
-  }
+  std::ofstream out(path.c_str(), std::ios::out|std::ios::binary);
+  if (!out) return ExecResultMsg(ExecResultMsg::ERROR, "Failed to create file \"" + path + "\".");
 
   int N_data = Wrench_data.size();
   int wrench_size = Wrench_data[0].size();
@@ -415,151 +291,31 @@ ExecResultMsg GravComp::saveWrenchOrientData(const std::string &path)
 
   try
   {
-    if (file_fmt == FileFormat::BIN)
-    {
-      io_::write_mat(wrench, out, true);
-      io_::write_mat(quat, out, true);
-    }
-    else if (file_fmt == FileFormat::TXT)
-    {
-      std::ostringstream oss;
-      oss << "N: " << N_data << "\n";
-      oss << "Wrench:\n";
-      oss << wrench << "\n";
-      oss << "Quaternion:\n";
-      oss << quat << "\n";
-      out << oss.str();
-    }
-    else if (file_fmt == FileFormat::YAML)
-    {
-      std::ostringstream oss;
-      oss << "N: " << N_data << "\n";
-      oss << "wrench: [";
-      for (int i=0; i<wrench.n_rows; i++)
-      {
-        for (int j=0; j<wrench.n_cols-1; j++) oss << wrench(i,j) << ", ";
-        oss << wrench(i, wrench.n_cols-1);
-        if (i<wrench.n_rows-1) oss << "; ";
-      }
-      oss << "]\n";
-      oss << "quaternion: [";
-      for (int i=0; i<quat.n_rows; i++)
-      {
-        for (int j=0; j<quat.n_cols-1; j++) oss << quat(i,j) << ", ";
-        oss << quat(i, quat.n_cols-1);
-        if (i<quat.n_rows-1) oss << "; ";
-      }
-      oss << "]\n";
-      out << oss.str();
-    }
+    io_::write_mat(wrench, out, true);
+    io_::write_mat(quat, out, true);
+
     out.close();
 
-    msg.setType(ExecResultMsg::INFO);
-    msg.setMsg("The wrench-orient data were successfully saved!");
-    return msg;
+    return ExecResultMsg(ExecResultMsg::INFO, "The wrench-orient data were successfully saved!");
   }
   catch (std::exception &e)
   {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg(std::string("Error writing data:\n") + e.what());
-    return msg;
+    return ExecResultMsg(ExecResultMsg::ERROR, std::string("Error writing data:\n") + e.what());
   }
 }
 
 ExecResultMsg GravComp::loadWrenchOrientData(const std::string &path)
 {
-  ExecResultMsg msg;
-
-  std::string suffix;
-  FileFormat file_fmt = getFileFormat(path, &suffix);
-
-  if (file_fmt == FileFormat::UNKNOWN)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Unknown file format \"" + suffix + "\"...\n");
-    return msg;
-  }
-
-  std::ifstream in;
-  if (file_fmt==FileFormat::BIN) in.open(path.c_str(), std::ios::in|std::ios::binary);
-  else in.open(path.c_str(), std::ios::in);
-  if (!in)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Failed to open file \"" + path + "\".");
-    return msg;
-  }
+  std::ifstream in(path.c_str(), std::ios::in|std::ios::binary);
+  if (!in) return ExecResultMsg(ExecResultMsg::ERROR, "Failed to open file \"" + path + "\".");
 
   arma::mat wrench;
   arma::mat quat;
 
-  int wrench_size = 6;
-  int orient_size = 4;
-
   try
   {
-    if (file_fmt==FileFormat::BIN)
-    {
-      io_::read_mat(wrench, in, true);
-      io_::read_mat(quat, in, true);
-    }
-    else if (file_fmt==FileFormat::TXT)
-    {
-      std::stringstream iss;
-      iss << in.rdbuf();
-      std::string label;
-      int N_data;
-      iss >> label >>  N_data;
-
-      wrench.resize(wrench_size, N_data);
-      iss >> label; // Wrench label
-      for (int i=0; i<wrench_size; i++)
-      {
-        for (int j = 0; j < N_data; j++)
-        {
-          double f;
-          iss >> f;
-          wrench(i,j) = f;
-        }
-      }
-      quat.resize(orient_size, N_data);
-      iss >> label; // Quat label
-      for (int i=0; i<orient_size; i++)
-      {
-        for (int j = 0; j < N_data; j++)
-        {
-          double f;
-          iss >> f;
-          quat(i,j) = f;
-        }
-      }
-    }
-    else if (file_fmt==FileFormat::YAML)
-    {
-      io_::Parser parser(path);
-
-      int N_data;
-      if (!parser.getParam("N",N_data))
-      {
-        msg.setType(ExecResultMsg::ERROR);
-        msg.setMsg("Failed to read parameter \"N\".");
-        return msg;
-      }
-
-      if (!parser.getParam("wrench",wrench))
-      {
-        msg.setType(ExecResultMsg::ERROR);
-        msg.setMsg("Failed to read parameter \"wrench\".");
-        return msg;
-      }
-
-      if (!parser.getParam("quaternion",quat))
-      {
-        msg.setType(ExecResultMsg::ERROR);
-        msg.setMsg("Failed to read parameter \"quaternion\".");
-        return msg;
-      }
-    }
+    io_::read_mat(wrench, in, true);
+    io_::read_mat(quat, in, true);
     in.close();
 
     int N_data = wrench.n_cols;
@@ -573,16 +329,11 @@ ExecResultMsg GravComp::loadWrenchOrientData(const std::string &path)
 
     std::ostringstream oss;
     oss << "Number of measurements = " << N_data << "\n";
-
-    msg.setType(ExecResultMsg::INFO);
-    msg.setMsg("The wrench-orient data were successfully loaded!\n\n" + oss.str());
-    return msg;
+    return ExecResultMsg(ExecResultMsg::INFO, "The wrench-orient data were successfully loaded!\n\n" + oss.str());
   }
   catch (std::exception &e)
   {
     in.close();
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Error reading data!\nThe file may be corrupted...");
-    return msg;
+    return ExecResultMsg(ExecResultMsg::ERROR, "Error reading data!\nThe file may be corrupted...");
   }
 }

@@ -29,8 +29,12 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   roslib
   io_lib
+  math_lib
   lwr4p
+  ur_robot
   ati_sensor
+  robo_lib
+  thread_lib
 )
 
 catkin_package(
@@ -54,11 +58,9 @@ set(SRC_LIST
   include/${PROJECT_NAME}/gui/set_poses_dialog.cpp
 
   src/source_list/grav_comp.cpp
-  src/source_list/utils.cpp
   src/source_list/robot/robot.cpp
+  src/source_list/robot/ur_robot.cpp
   src/source_list/robot/lwr4p_robot.cpp
-  src/source_list/robot/lwr4p_sim_robot.cpp
-  src/source_list/tool_estimator.cpp
 
   src/main.cpp
 )
@@ -77,7 +79,11 @@ target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   armadillo
   io_lib
+  math_lib
   lwr4p
+  ur_robot
+  robo_lib
+  thread_lib
   ati_sensor
   ${Qt_LIBRARIES}
   pthread

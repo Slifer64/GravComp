@@ -1,140 +1,106 @@
-#ifndef GRAVITY_COMPENSATION_LWR4P_ROBOT_H
-#define GRAVITY_COMPENSATION_LWR4P_ROBOT_H
+#ifndef $_PROJECT_384$_LWR4P_ROBOT_H
+#define $_PROJECT_384$_LWR4P_ROBOT_H
 
 #include <grav_comp/robot/robot.h>
-#include <lwr4p/Robot.h>
-#include <ati_sensor/ft_sensor.h>
+#include <lwr4p/robot.h>
+#include <lwr4p/sim_robot.h>
+#include <robo_lib/joint_state_publisher.h>
+
+using namespace as64_;
 
 class LWR4p_Robot: public Robot
 {
 public:
-  LWR4p_Robot(const ToolEstimator *tool_est);
+  LWR4p_Robot(bool use_sim);
   ~LWR4p_Robot();
 
-  void commandThread();
+  void commandThread() override;
 
-  int getNumOfJoints() const
-  { return N_JOINTS; }
+  void setWrenchBias() override { if (ftsensor) ftsensor->setBias(); }
 
-  std::string getErrMsg() const
-  {
-    return err_msg;
-  }
+  int getNumOfJoints() const override
+  { return robot->getNumJoints(); }
 
-  arma::vec getTaskPosition() const
+  std::string getErrMsg() const override
+  { return err_msg; }
+
+  void publishJointStates(const std::string &publish_jstates_topic) override;
+
+  void useAtiSensor() override;
+
+  arma::vec getTaskPosition() const override
   { return robot->getTaskPosition(); }
 
-  arma::vec getTaskOrientation() const
-  {
-    arma::vec task_orient(4);
-    arma::mat R = robot->getTaskOrientation();
-    task_orient = rotm2quat(R);
-    return task_orient;
-  }
+  arma::mat getTaskRotMat() const override
+  { return robot->getTaskRotm() * R_et; }
 
-  arma::vec getTaskForce() const
+  arma::vec getTaskOrientation() const override
+  { return rotm2quat(this->getTaskRotMat()); }
+
+  arma::vec getTaskForce() const override
   { return getTaskWrench().subvec(0,2); }
 
-  arma::vec getTaskTorque() const
+  arma::vec getTaskTorque() const override
   { return getTaskWrench().subvec(3,5); }
 
-  arma::vec getTaskWrench() const
+  arma::vec getTaskWrench() const override
+  { return applyFextDeadZone(get_wrench_fun()); }
+
+  arma::vec getJointsPosition() const override
+  { return robot->getJointsPosition(); }
+
+  arma::mat getJacobian() const override
+  { return robot->getJacobian(); }
+
+  void update() override
+  { KRC_tick.wait(); }
+
+  void setEmergencyStop(bool set) override
   {
-    static double measurements[6];
-    uint32_t rdt(0),ft(0);
-    (const_cast<ati::FTSensor *>(&ftsensor))->getMeasurements(measurements,rdt,ft);
-    //ftsensor.getMeasurements(measurements,rdt,ft);
-
-    arma::vec Fext(6);
-    Fext(0) = measurements[0];
-    Fext(1) = measurements[1];
-    Fext(2) = measurements[2];
-    Fext(3) = measurements[3];
-    Fext(4) = measurements[4];
-    Fext(5) = measurements[5];
-
-    // arma::mat R = robot->getTaskOrientation();
-    // Fext.subvec(0,2) = R*Fext.subvec(0,2);
-    // Fext.subvec(3,5) = R*Fext.subvec(3,5);
-
-    // arma::vec Fext(6);
-    // Fext = robot->getExternalWrench();
-    // Fext = -Fext;
-
-    return Fext;
+    emergency_stop = set;
+    if (set) setMode(Robot::IDLE);
   }
 
-  arma::vec getCompTaskWrench() const
-  {
-    arma::vec wrench(6);
-    Eigen::Map<Eigen::Matrix<double,6,1>> wrench_map(wrench.memptr());
-    arma::vec quat(4);
+  arma::vec getJointPosLowLim() const override
+  { return arma::vec(robot->robot_urdf->getJointsPosLowLim())*180/3.14159; }
 
-    wrench = this->getTaskWrench();
-    quat = this->getTaskOrientation();
-    Eigen::Vector6d tool_wrench = tool_estimator->getToolWrench(Eigen::Quaterniond(quat(0),quat(1),quat(2),quat(3)));
-    wrench_map -= tool_wrench;
+  arma::vec getJointPosUpperLim() const override
+  { return arma::vec(robot->robot_urdf->getJointsPosUpperLim())*180/3.14159; }
 
-    return wrench;
-  }
+  void stop() override;
 
-  arma::vec getJointsPosition() const
-  { return robot->getJointPosition(); }
+  void setMode(const Robot::Mode &mode) override;
 
-  arma::mat getJacobian() const
-  { return robot->getRobotJacobian(); }
+  double getCtrlCycle() const override
+  { return Ts; }
 
-  void update()
-  {
-    if (robot->isOk())
-    {
-      KRC_tick.wait();
-      is_ok = true;
-    }
-    else is_ok = false;
-  }
+  bool isOk() const override
+  { return robot->isOk(); }
 
-  arma::vec getJointsLowerLimits() const
-  { return jpos_low_lim; }
-
-  arma::vec getJointsUpperLimits() const
-  { return jpos_upper_lim; }
-
-  void stop();
-
-  void setMode(const Robot::Mode &mode);
-
-  double getCtrlCycle() const
-  { return robot->getControlCycle(); }
-
-  bool isOk() const
-  { return is_ok; }
-
-  void setJointsPosition(const arma::vec &jpos) { jpos_cmd.set(jpos); }
-  void setJointsTorque(const arma::vec &jtorq) { jtorque_cmd.set(jtorq); }
-  void setTaskVelocity(const arma::vec &vel) { cart_vel_cmd.set(vel); }
-  bool setJointsTrajectory(const arma::vec &qT, double duration);
+  void setJointsPosition(const arma::vec &jpos) override { jpos_cmd.set(jpos); }
+  void setJointsTorque(const arma::vec &jtorq) override { jtorque_cmd.set(jtorq); }
+  void setTaskVelocity(const arma::vec &vel) override { cart_vel_cmd.set(vel); }
+  bool setJointsTrajectory(const arma::vec &qT, double duration) override;
 
   std::vector<std::string> getJointNames() const
-  { return jnames; }
+  { return robot->robot_urdf->getJointsName(); }
 
 private:
-  std::shared_ptr<lwr4p::Robot> robot;
-  ati::FTSensor ftsensor;
 
-  bool is_ok;
+  arma::vec getTaskWrenchFromAti() const;
+  arma::vec getTaskWrenchFromRobot() const;
+
+  std::shared_ptr<lwr4p_::RobotArm> robot;
+  robo_::JointStatePublisher jState_pub;
+  std::shared_ptr<ati::FTSensor> ftsensor;
+  std::function<arma::vec()> get_wrench_fun;
 
   std::string err_msg;
-
   int N_JOINTS;
+  thr_::MtxVar<Mode> cmd_mode;
+  thr_::Semaphore mode_change;
 
-  MtxVar<Mode> cmd_mode;
-
-  Semaphore mode_change;
-
-  arma::vec jpos_low_lim;
-  arma::vec jpos_upper_lim;
-  std::vector<std::string> jnames;
+  double Ts; // robot control cycle
 };
 
-#endif // GRAVITY_COMPENSATION_LWR4P_ROBOT_H
+#endif // $_PROJECT_384$_LWR4P_ROBOT_H

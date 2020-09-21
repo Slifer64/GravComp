@@ -5,7 +5,7 @@
 #include <ros/package.h>
 
 #include <grav_comp/grav_comp.h>
-#include <io_lib/parser.h>
+#include <io_lib/xml_parser.h>
 
 #include <QDebug>
 
@@ -157,7 +157,10 @@ void MainWindow::createActions()
   set_predef_poses_act->setStatusTip(tr("Opens a dialog where you can insert/remove poses at which to record wrench-orient."));
 
   view_wrench_act = new QAction(tr("View wrench"), this);
-  view_wrench_act->setStatusTip(tr("Opens a window displaying the compensated tool wrench."));
+  view_wrench_act->setStatusTip(tr("Opens a window displaying the tool wrench."));
+
+  view_compWrench_act = new QAction(tr("View compensated wrench"), this);
+  view_compWrench_act->setStatusTip(tr("Opens a window displaying the compensated tool wrench."));
 
   view_pose_act = new QAction(tr("View pose"), this);
   view_pose_act->setStatusTip(tr("Opens a window displaying the robot's end-effector pose."));
@@ -168,8 +171,6 @@ void MainWindow::createActions()
 
 void MainWindow::createConnections()
 {
-
-
   QObject::connect( load_predef_poses_act, &QAction::triggered, this, &MainWindow::loadPredefPosesTriggered );
 
   QObject::connect( load_wrenchOrient_act, &QAction::triggered, this, &MainWindow::loadWrenchOrientTriggered );
@@ -183,6 +184,7 @@ void MainWindow::createConnections()
   QObject::connect( set_predef_poses_act, &QAction::triggered, [this](){ this->set_poses_dialog->launch(); } );
 
   QObject::connect( view_wrench_act, &QAction::triggered, [this](){ this->view_wrench_dialog->launch(); } );
+  QObject::connect( view_compWrench_act, &QAction::triggered, [this](){ this->view_compWrench_dialog->launch(); } );
 
   QObject::connect( view_pose_act, &QAction::triggered, [this](){ this->view_pose_dialog->launch();} );
 
@@ -211,6 +213,8 @@ void MainWindow::createConnections()
   QObject::connect( this, &MainWindow::saveWrenchOrientAckSignal, this, &MainWindow::saveWrenchOrientAckSlot );
   QObject::connect( this, &MainWindow::recWrenchQuatAckSignal, this, &MainWindow::recWrenchQuatAckSlot );
   QObject::connect( this, &MainWindow::recPredefPosesAckSignal, this, &MainWindow::recPredefPosesAckSlot );
+
+  QObject::connect( this, SIGNAL(closeSignal()), this, SLOT(close()) );
 }
 
 void MainWindow::createMenus()
@@ -234,7 +238,9 @@ void MainWindow::createMenus()
   view_menu = menu_bar->addMenu(tr("&View"));
   view_menu->addAction(view_pose_act);
   view_menu->addAction(view_joints_act);
+  view_menu->addSeparator();
   view_menu->addAction(view_wrench_act);
+  view_menu->addAction(view_compWrench_act);
   // view_menu->addSeparator();
 }
 
@@ -243,9 +249,10 @@ void MainWindow::createWidgets()
   QFont font1("Ubuntu", 13, QFont::DemiBold);
   QFont font2("Ubuntu", 15, QFont::DemiBold);
 
-  view_wrench_dialog = new ViewWrenchDialog(std::bind(&Robot::getCompTaskWrench, robot), this);
+  view_wrench_dialog = new ViewWrenchDialog(std::bind(&Robot::getTaskWrench, robot), this);
+  view_compWrench_dialog = new ViewWrenchDialog(std::bind(&Robot::getCompTaskWrench, robot), this);
   view_pose_dialog = new ViewPoseDialog(std::bind(&Robot::getTaskPosition, robot), std::bind(&Robot::getTaskOrientation, robot), this);
-  view_jpos_dialog = new ViewJPosDialog(robot->getJointsLowerLimits(), robot->getJointsUpperLimits(), std::bind(&Robot::getJointsPosition, robot), this);
+  view_jpos_dialog = new ViewJPosDialog(robot->getJointPosLowLim(), robot->getJointPosUpperLim(), std::bind(&Robot::getJointsPosition, robot), this);
   view_jpos_dialog->setJointNames(robot->getJointNames());
   set_poses_dialog = new SetPosesDialog(robot->getNumOfJoints(), this);
 
@@ -441,31 +448,23 @@ void MainWindow::loadPredefPosesTriggered()
   std::string path = QFileDialog::getOpenFileName(this, tr("Load poses"), default_data_path.c_str(), "YAML files (*.yaml)").toStdString();
   if (path.empty()) return;
 
-  ExecResultMsg msg;
-
   // ========  check file format  =========
-  std::string suffix;
-  FileFormat file_fmt = getFileFormat(path, &suffix);
+  //std::string suffix;
+  // FileFormat file_fmt = getFileFormat(path, &suffix);
 
-  if (file_fmt != FileFormat::YAML)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Only \"yaml\" or \"yml\" format is allowed!\n");
-    showMsg(msg);
-    return;
-  }
+//  if (file_fmt != FileFormat::YAML)
+//  {
+//    showMsg(ExecResultMsg(ExecResultMsg::ERROR, "Only \"yaml\" or \"yml\" format is allowed!\n"));
+//    return;
+//  }
 
   // ========  open file  =========
-  std::shared_ptr<io_::Parser> parser;
-  try {
-    parser.reset(new io_::Parser(path));
+  std::shared_ptr<io_::XmlParser> parser;
+  try{
+    parser.reset(new io_::XmlParser(path));
   }
   catch(std::exception &e)
-  {
-    msg.setType(ExecResultMsg::ERROR);
-    msg.setMsg("Failed to open file \"" + path + "\".");
-    showMsg(msg);
-  }
+  { showMsg(ExecResultMsg(ExecResultMsg::ERROR, "Failed to open file \"" + path + "\".")); }
 
   // ========  read poses  =========
   std::vector<arma::vec> &poses = set_poses_dialog->poses;
@@ -483,10 +482,7 @@ void MainWindow::loadPredefPosesTriggered()
   // ========  fill in return message  =========
   std::ostringstream oss;
   oss << "Number of loaded poses = " << poses.size() << "\n";
-
-  msg.setType(ExecResultMsg::INFO);
-  msg.setMsg("Poses successfully loaded!\n\n" + oss.str());
-  showMsg(msg);
+  showMsg(ExecResultMsg(ExecResultMsg::INFO, "Poses successfully loaded!\n\n" + oss.str()));
 }
 
 // ========================     LOAD wrench-orient data    ==================================
@@ -679,7 +675,7 @@ void MainWindow::recPredefPosesPressed()
     ExecResultMsg msg = this->grav_comp->recPredefPoses();
     recPredefPosesAckSignal(msg);
   });
-  makeThreadRT(thr);
+  thr_::makeThreadRT(thr);
   thr.detach();
 }
 

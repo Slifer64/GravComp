@@ -11,7 +11,6 @@
 
 #include <grav_comp/robot/robot.h>
 #include <grav_comp/gui/mainwindow.h>
-#include <grav_comp/tool_estimator.h>
 
 class GravComp
 {
@@ -51,7 +50,7 @@ protected:
   std::vector<Eigen::Quaterniond> Quat_data;
   arma::vec CoM;
   double mass;
-  ToolEstimator tool_estimator;
+  robo_::ToolEstimator tool_estimator;
   bool is_CoM_calculated;
 
   // robot
@@ -61,8 +60,11 @@ protected:
   // GUI
   MainWindow *gui;
 
-  Semaphore start_sem;
-  Semaphore finish_sem;
+  thr_::Semaphore start_sem;
+  thr_::Semaphore finish_sem;
+
+  static void closeGUI(int);
+  static MainWindow *gui_; // used to emit closeGUI signal
 
 };
 
