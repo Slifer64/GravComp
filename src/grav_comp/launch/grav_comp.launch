@@ -2,12 +2,26 @@
 
 <launch>
 
+    <arg name="publish_jstates_topic" default="/robot_joint_states"/>
+
     <!-- robot model -->
     <arg name="limited" default="false"/>
     <param unless="$(arg limited)" name="robot_description" command="$(find xacro)/xacro.py '$(find grav_comp)/urdf/ur5_robot.urdf.xacro' limited:=$(arg limited)" />
 
+    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" required="true">
+        <rosparam param="source_list" subst_value="true">[$(arg publish_jstates_topic)]</rosparam>
+        <rosparam>
+            rate: 50
+            use_gui: true
+        </rosparam>
+    </node>
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" required="true"/>
+    <node name="rviz" pkg="rviz" type="rviz" respawn="false" args="-d $(find grav_comp)/rviz/ur_test.rviz" output="screen" required="true"/>
+
     <node pkg="grav_comp" type="grav_comp" name="grav_comp_node"
           output="screen" cwd="node">
+
+          <param name="publish_jstates_topic" value="$(arg publish_jstates_topic)"/>
 
           <param name="robot_ip" type="string" value="10.0.0.1" />
 
@@ -15,8 +29,9 @@
             robot_type: "ur"
             CoM_filename: "CoM.yaml"
 
+            pub_jstates_flag: true
 
-            use_sim: true
+            use_sim: false
             use_ati: false
 
             ee_tool_rot: [1, 0, 0, 0, 1, 0, 0, 0, 1]

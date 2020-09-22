@@ -409,9 +409,12 @@ void MainWindow::updateGUIonSaveData()
 
 void MainWindow::loadTriggered()
 {
-  load_data_path = QFileDialog::getOpenFileName(this, tr("Load CoM Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
-  if (load_data_path.empty()) return;
+  // load_data_path = QFileDialog::getOpenFileName(this, tr("Load CoM Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
+  // if (load_data_path.empty()) return;
 
+  std::string filename;
+  if (!ros::NodeHandle("~").getParam("CoM_filename", filename)) filename="";
+  load_data_path = default_data_path + filename;
   load_data = true;
   updateGUIonLoadData();
 
