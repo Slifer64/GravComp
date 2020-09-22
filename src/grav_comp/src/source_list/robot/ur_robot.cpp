@@ -247,7 +247,7 @@ void Ur_Robot::publishJointStates(const std::string &publish_jstates_topic)
 void Ur_Robot::useAtiSensor()
 {
   ftsensor.reset(new ati::FTSensor);
-  std::string ft_sensor_ip = "192.168.2.1";
+  std::string ft_sensor_ip = "192.168.1.1";
   std::cerr << "=======> Initializing F/T sensor at ip: " << ft_sensor_ip << "\n";
   ftsensor->init(ft_sensor_ip.c_str());
   ftsensor->setTimeout(1.0);
@@ -282,4 +282,3 @@ arma::vec Ur_Robot::getTaskWrenchFromAti() const
 
 arma::vec Ur_Robot::getTaskWrenchFromRobot() const
 { return robot->getTcpWrench(); }
-

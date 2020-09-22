@@ -47,7 +47,7 @@ GravComp::GravComp()
 
   // =======  check whether to use ati-sensor  =======
   bool use_ati_sensor = false;
-  if (nh.getParam("use_ati_sensor", use_ati_sensor) && use_ati_sensor)
+  if (nh.getParam("use_ati", use_ati_sensor) && use_ati_sensor)
   {
     robot->useAtiSensor();
     bool set_wrench_bias = false;

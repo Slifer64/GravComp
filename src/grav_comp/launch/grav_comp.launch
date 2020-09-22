@@ -2,45 +2,49 @@
 
 <launch>
 
-    <arg name="publish_jstates_topic" default="/robot_joint_states"/>
+  <arg name="ati_ip" default="192.168.1.1" />
 
-    <!-- robot model -->
-    <arg name="limited" default="false"/>
-    <param unless="$(arg limited)" name="robot_description" command="$(find xacro)/xacro.py '$(find grav_comp)/urdf/ur5_robot.urdf.xacro' limited:=$(arg limited)" />
+  <arg name="publish_jstates_topic" default="/robot_joint_states"/>
 
-    <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" required="true">
-        <rosparam param="source_list" subst_value="true">[$(arg publish_jstates_topic)]</rosparam>
-        <rosparam>
-            rate: 50
-            use_gui: true
-        </rosparam>
-    </node>
-    <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" required="true"/>
-    <node name="rviz" pkg="rviz" type="rviz" respawn="false" args="-d $(find grav_comp)/rviz/ur_test.rviz" output="screen" required="true"/>
+  <!-- robot model -->
+  <arg name="limited" default="false"/>
+  <param unless="$(arg limited)" name="robot_description" command="$(find xacro)/xacro.py '$(find grav_comp)/urdf/ur5_robot.urdf.xacro' limited:=$(arg limited)" />
 
-    <node pkg="grav_comp" type="grav_comp" name="grav_comp_node"
-          output="screen" cwd="node">
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" required="true">
+    <rosparam param="source_list" subst_value="true">[$(arg publish_jstates_topic)]</rosparam>
+    <rosparam>
+        rate: 50
+        use_gui: true
+    </rosparam>
+  </node>
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" required="true"/>
+  <node name="rviz" pkg="rviz" type="rviz" respawn="false" args="-d $(find grav_comp)/rviz/ur_test.rviz" output="screen" required="true"/>
 
-          <param name="publish_jstates_topic" value="$(arg publish_jstates_topic)"/>
+  <node pkg="grav_comp" type="grav_comp" name="grav_comp_node"
+        output="screen" cwd="node">
 
-          <param name="robot_ip" type="string" value="10.0.0.1" />
+    <param name="publish_jstates_topic" value="$(arg publish_jstates_topic)"/>
 
-          <rosparam>
-            robot_type: "ur"
-            CoM_filename: "CoM.yaml"
+    <param name="robot_ip" type="string" value="10.0.0.1" />
 
-            pub_jstates_flag: true
+    <param name="ati_ip" value="$(arg ati_ip)"/>
 
-            use_sim: false
-            use_ati: false
+    <rosparam>
+      robot_type: "ur"
+      CoM_filename: "CoM.yaml"
 
-            ee_tool_rot: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+      pub_jstates_flag: true
 
-            robot_description_name: "/robot_description"
-            base_link: "ur5_base_link"
-            tool_link: "ur5_tool0"
-          </rosparam>
+      use_sim: false
+      use_ati: true
 
-    </node>
+      ee_tool_rot: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+
+      robot_description_name: "/robot_description"
+      base_link: "ur5_base_link"
+      tool_link: "ur5_tool0"
+    </rosparam>
+
+  </node>
 
 </launch>
