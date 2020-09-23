@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="ati_sensor_phri_tool">
+
+  <!-- Create a joint to connect the arm with the phri_tool -->
+  <joint name="arm_to_ati_sensor" type="fixed">
+    <parent link="lwr_arm_7_link" />
+    <child link = "ati_mini_40" />
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
+  </joint>
+  <!-- Create the link of the handle -->
+  <link name="ati_mini_40">
+    <visual>
+      <geometry>
+        <mesh filename="package://ati_sensor_description/meshes/ati_mini_40_complete.STL"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <!-- Finally a dummy link and joint for the phri_tool frame -->
+  <joint name="ati_sensor_to_handle_base" type="fixed">
+    <parent link="ati_mini_40" />
+    <child link = "phri_tool_base" />
+    <origin xyz="0.0 0.0 0.0343" rpy="0 0 0" />
+  </joint>
+  <!-- Create the link of the handle -->
+  <link name="phri_tool_base">
+    <visual>
+      <geometry>
+        <mesh filename="package://lwr_description/meshes/tools/handle.dae"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <!-- Finally a dummy link and joint for the phri_tool frame -->
+  <joint name="phri_tool_base_to_phri_tool" type="fixed">
+    <parent link="phri_tool_base" />
+    <child link = "phri_tool" />
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
+  </joint>
+  <link name="phri_tool"/>
+
+</robot>
