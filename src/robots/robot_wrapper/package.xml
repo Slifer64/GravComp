@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>grav_comp</name>
+  <name>robot_wrapper</name>
   <version>0.0.0</version>
-  <description>DMP SE(3) Robot</description>
+  <description>Robot wrapper library</description>
 
   <maintainer email="antosidi646@gmail.com">Antonis Sidiropoulos</maintainer>
 
@@ -16,23 +16,23 @@
   <build_depend>roslib</build_depend>
   <run_depend>roslib</run_depend>
 
-  <build_depend>tf</build_depend>
-  <run_depend>tf</run_depend>
-
   <build_depend>geometry_msgs</build_depend>
   <run_depend>geometry_msgs</run_depend>
-  
-  <build_depend>io_lib</build_depend>
-  <run_depend>io_lib</run_depend>
 
-  <build_depend>math_lib</build_depend>
-  <run_depend>math_lib</run_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <run_depend>sensor_msgs</run_depend>
 
   <build_depend>thread_lib</build_depend>
   <run_depend>thread_lib</run_depend>
 
-  <build_depend>robot_wrapper</build_depend>
-  <run_depend>robot_wrapper</run_depend>
+  <build_depend>robo_lib</build_depend>
+  <run_depend>robo_lib</run_depend>
+
+  <build_depend>lwr4p</build_depend>
+  <run_depend>lwr4p</run_depend>
+
+  <build_depend>ur_robot</build_depend>
+  <run_depend>ur_robot</run_depend>
 
   <build_depend>ati_sensor</build_depend>
   <run_depend>ati_sensor</run_depend>

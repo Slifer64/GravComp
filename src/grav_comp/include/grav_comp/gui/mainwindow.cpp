@@ -11,7 +11,7 @@
 
 using namespace as64_;
 
-MainWindow::MainWindow(const Robot *robot, GravComp *grav_comp, QWidget *parent): QMainWindow(parent)
+MainWindow::MainWindow(const rw_::Robot *robot, GravComp *grav_comp, QWidget *parent): QMainWindow(parent)
 {
   this->robot = robot;
   this->grav_comp = grav_comp;
@@ -84,9 +84,9 @@ void MainWindow::setMode(const Mode &m)
 
   mode = m;
 
-  Robot::Mode robot_mode;
-  if (mode==MainWindow::FREEDRIVE) robot_mode = Robot::FREEDRIVE;
-  else if (mode==MainWindow::IDLE) robot_mode = Robot::IDLE;
+  rw_::Mode robot_mode;
+  if (mode==MainWindow::FREEDRIVE) robot_mode = rw_::FREEDRIVE;
+  else if (mode==MainWindow::IDLE) robot_mode = rw_::IDLE;
 
   std::thread([this,robot_mode]()
   {
@@ -264,10 +264,10 @@ void MainWindow::createWidgets()
   QFont font1("Ubuntu", 13, QFont::DemiBold);
   QFont font2("Ubuntu", 15, QFont::DemiBold);
 
-  view_wrench_dialog = new ViewWrenchDialog(std::bind(&Robot::getTaskWrench, robot), this);
-  view_compWrench_dialog = new ViewWrenchDialog(std::bind(&Robot::getCompTaskWrench, robot), this);
-  view_pose_dialog = new ViewPoseDialog(std::bind(&Robot::getTaskPosition, robot), std::bind(&Robot::getTaskOrientation, robot), this);
-  view_jpos_dialog = new ViewJPosDialog(robot->getJointPosLowLim(), robot->getJointPosUpperLim(), std::bind(&Robot::getJointsPosition, robot), this);
+  view_wrench_dialog = new ViewWrenchDialog(std::bind(&rw_::Robot::getTaskWrench, robot), this);
+  view_compWrench_dialog = new ViewWrenchDialog(std::bind(&rw_::Robot::getCompTaskWrench, robot), this);
+  view_pose_dialog = new ViewPoseDialog(std::bind(&rw_::Robot::getTaskPosition, robot), std::bind(&rw_::Robot::getTaskOrientation, robot), this);
+  view_jpos_dialog = new ViewJPosDialog(robot->getJointPosLowLim(), robot->getJointPosUpperLim(), std::bind(&rw_::Robot::getJointsPosition, robot), this);
   view_jpos_dialog->setJointNames(robot->getJointNames());
   set_poses_dialog = new SetPosesDialog(robot->getNumOfJoints(), this);
 
@@ -347,7 +347,7 @@ void MainWindow::emergencyStopPressed()
 
   std::thread([this]()
   {
-    this->grav_comp->setMode(Robot::IDLE);
+    this->grav_comp->setMode(rw_::IDLE);
     emergencyStopAckSignal();
   }).detach();
 
@@ -743,7 +743,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
   load_data = false;
   save_data = false;
 
-  std::thread([this](){ this->grav_comp->setMode(Robot::IDLE); }).detach();
+  std::thread([this](){ this->grav_comp->setMode(rw_::IDLE); }).detach();
 
   // update_gui_sem.notify(); // unlock possible waits...
   QMainWindow::closeEvent(event);

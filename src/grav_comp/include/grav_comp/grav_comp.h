@@ -9,7 +9,7 @@
 #include <armadillo>
 #include <Eigen/Dense>
 
-#include <grav_comp/robot/robot.h>
+#include <robot_wrapper/robot.h>
 #include <grav_comp/gui/mainwindow.h>
 #include <grav_comp/utils/tf_pose_publisher.h>
 
@@ -39,7 +39,7 @@ protected:
   void launchPublishEEPose(unsigned pub_rate_ms = 200);
 
   void checkRobot();
-  void setMode(Robot::Mode mode);
+  void setMode(rw_::Mode mode);
 
   std::string err_msg;
   void setErrMsg(const std::string &msg) { err_msg = msg; }
@@ -58,7 +58,7 @@ protected:
 
   // robot
   std::string robot_type;
-  std::shared_ptr<Robot> robot;
+  std::shared_ptr<rw_::Robot> robot;
 
   // GUI
   MainWindow *gui;

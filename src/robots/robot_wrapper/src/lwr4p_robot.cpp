@@ -1,8 +1,11 @@
-#include <grav_comp/robot/lwr4p_robot.h>
-#include <grav_comp/utils.h>
+#include <robot_wrapper/lwr4p_robot.h>
+// #include <project_name_/utils.h>
 
 #include <ros/package.h>
 #include <pthread.h>
+
+namespace rw_
+{
 
 #define LWR4p_Robot_fun_ std::string("[LWR4p_Robot::") + __func__ + "]: "
 
@@ -44,8 +47,8 @@ LWR4p_Robot::LWR4p_Robot(bool use_sim)
 
   get_wrench_fun = std::bind(&LWR4p_Robot::getTaskWrenchFromRobot, this);
 
-  mode.set(Robot::STOPPED);
-  cmd_mode.set(Robot::IDLE);
+  mode.set(rw_::STOPPED);
+  cmd_mode.set(rw_::IDLE);
   jpos_cmd.set(robot->getJointsPosition());
 
   std::thread robot_ctrl_thread = std::thread(&LWR4p_Robot::commandThread,this);
@@ -60,7 +63,7 @@ LWR4p_Robot::LWR4p_Robot(bool use_sim)
 LWR4p_Robot::~LWR4p_Robot()
 {}
 
-void LWR4p_Robot::setMode(const Robot::Mode &mode)
+void LWR4p_Robot::setMode(const Mode &mode)
 {
   if (mode == cmd_mode.get()) return;
 
@@ -87,34 +90,34 @@ void LWR4p_Robot::commandThread()
     {
       switch (new_mode)
       {
-        case JOINT_POS_CONTROL:
+        case rw_::Mode::JOINT_POS_CONTROL:
           robot->setMode(lwr4p_::Mode::JOINT_POS_CONTROL);
           jpos_cmd.set(robot->getJointsPosition());
           break;
-        case JOINT_TORQUE_CONTROL:
+        case rw_::Mode::JOINT_TORQUE_CONTROL:
           robot->setMode(lwr4p_::Mode::JOINT_TORQUE_CONTROL);
           jtorque_cmd.set(arma::vec().zeros(N_JOINTS));
           break;
-        case FREEDRIVE:
+        case rw_::Mode::FREEDRIVE:
           robot->setMode(lwr4p_::Mode::FREEDRIVE);
           jtorque_cmd.set(arma::vec().zeros(N_JOINTS));
           break;
-        case CART_VEL_CTRL:
+        case rw_::Mode::CART_VEL_CTRL:
           robot->setMode(lwr4p_::Mode::JOINT_VEL_CONTROL);
           cart_vel_cmd.set(arma::vec().zeros(6));
           break;
-        case IDLE:
+        case rw_::Mode::IDLE:
           robot->setMode(lwr4p_::Mode::JOINT_POS_CONTROL);
           jpos_cmd.set(robot->getJointsPosition());
           break;
-        case STOPPED:
+        case rw_::Mode::STOPPED:
           robot->setMode(lwr4p_::Mode::IDLE);
           // robot->setExternalStop(true);
           mode.set(new_mode);
           mode_change.notify(); // unblock in case wait was called from another thread
           KRC_tick.notify(); // unblock in case wait was called from another thread
           return;
-        case PROTECTIVE_STOP:
+        case rw_::Mode::PROTECTIVE_STOP:
           mode.set(new_mode);
           continue;
           // if (main_ctrl) emit main_ctrl->gui->emergencyStopSignal();
@@ -147,17 +150,17 @@ void LWR4p_Robot::commandThread()
         // std::cerr << "dq = " << dq.t() << "\n";
         robot->setJointsVelocity(dq);
         break;
-      case Robot::Mode::FREEDRIVE:
+      case rw_::Mode::FREEDRIVE:
         // robot->setJointTorque(-robot->getRobotJacobian().t() * tool_estimator->getToolWrench(this->getTaskOrientation()));
         // robot->setJointsTorque(arma::vec().zeros(7));
         break;
-      case Robot::Mode::IDLE:
+      case rw_::Mode::IDLE:
         // std::cerr << "*** Send command in IDLE mode ***\n";
         // std::cerr << "Robot mode: " << robot->getModeName() << "\n";
         robot->setJointsPosition(jpos_cmd.get());
         break;
-      case Robot::Mode::STOPPED:
-      case Robot::Mode::PROTECTIVE_STOP:
+      case rw_::Mode::STOPPED:
+      case rw_::Mode::PROTECTIVE_STOP:
         // std::cerr << "***  MODE: STOPPED ***\n";
         break;
     }
@@ -182,9 +185,9 @@ void LWR4p_Robot::commandThread()
 bool LWR4p_Robot::setJointsTrajectory(const arma::vec &qT, double duration)
 {
   // keep last known robot mode
-  Robot::Mode prev_mode = this->getMode();
+  rw_::Mode prev_mode = this->getMode();
   // start controller
-  this->setMode(Robot::JOINT_POS_CONTROL);
+  this->setMode(rw_::JOINT_POS_CONTROL);
   // std::cerr << "[LWR4p_Robot::setJointsTrajectory]: Mode changed to \"IDLE\"!\n";
 
   // waits for the next tick
@@ -239,50 +242,6 @@ void LWR4p_Robot::stop()
   setMode(STOPPED);
 }
 
-void LWR4p_Robot::publishJointStates(const std::string &publish_jstates_topic)
-{
-  jState_pub.setPublishTopic(publish_jstates_topic);
-  jState_pub.addFun(&lwr4p_::RobotArm::addJointState, robot.get());
-  jState_pub.setPublishCycle(0.033);
-  jState_pub.start(); // launches joint states publisher thread
-}
+} // namespace rw_
 
-void LWR4p_Robot::useAtiSensor()
-{
-  ftsensor.reset(new ati::FTSensor);
-  std::string ft_sensor_ip = "192.168.2.1";
-  std::cerr << "=======> Initializing F/T sensor at ip: " << ft_sensor_ip << "\n";
-  ftsensor->init(ft_sensor_ip.c_str());
-  ftsensor->setTimeout(1.0);
-  // ftsensor->setBias();
-  std::cerr << "=======> F/T sensor initialized successfully!\n";
-
-  get_wrench_fun = std::bind(&LWR4p_Robot::getTaskWrenchFromAti, this);
-}
-
-arma::vec LWR4p_Robot::getTaskWrenchFromAti() const
-{
-  if (!ftsensor) throw std::runtime_error(LWR4p_Robot_fun_ + "Ati sensor is not initialized...\n");
-
-  static double measurements[6];
-  uint32_t rdt(0),ft(0);
-  (const_cast<ati::FTSensor *>(ftsensor.get()))->getMeasurements(measurements,rdt,ft);
-  //ftsensor->getMeasurements(measurements,rdt,ft);
-
-  arma::vec Fext(6);
-  Fext(0) = measurements[0];
-  Fext(1) = measurements[1];
-  Fext(2) = measurements[2];
-  Fext(3) = measurements[3];
-  Fext(4) = measurements[4];
-  Fext(5) = measurements[5];
-
-  arma::mat R = this->getTaskRotMat();
-  Fext.subvec(0,2) = R*Fext.subvec(0,2);
-  Fext.subvec(3,5) = R*Fext.subvec(3,5);
-  return Fext;
-}
-
-arma::vec LWR4p_Robot::getTaskWrenchFromRobot() const
-{ return -(robot->getExternalWrench()); }
 

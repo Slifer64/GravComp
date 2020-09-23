@@ -12,8 +12,8 @@
 #include <ros/ros.h>
 #include <ros/package.h>
 
-#include <grav_comp/robot/ur_robot.h>
-#include <grav_comp/robot/lwr4p_robot.h>
+#include <robot_wrapper/ur_robot.h>
+#include <robot_wrapper/lwr4p_robot.h>
 
 #include <io_lib/io_utils.h>
 #include <io_lib/xml_parser.h>
@@ -32,8 +32,8 @@ GravComp::GravComp()
   bool use_sim;
   if (!nh.getParam("use_sim", use_sim)) throw std::ios_base::failure(GravComp_fun_ + "Failed to read \"use_sim\" param.");
 
-  if (robot_type.compare("lwr4p")==0) robot.reset(new LWR4p_Robot(use_sim));
-  else if (robot_type.compare("ur")==0) robot.reset(new Ur_Robot(use_sim));
+  if (robot_type.compare("lwr4p")==0) robot.reset(new rw_::LWR4p_Robot(use_sim));
+  else if (robot_type.compare("ur")==0) robot.reset(new rw_::Ur_Robot(use_sim));
   else throw std::runtime_error("Unsupported robot type \"" + robot_type + "\".");
 
   // check whether to publish joint states
@@ -67,7 +67,7 @@ GravComp::GravComp()
   // =======  Robot ee tf publisher  =======
   std::string base_link;
   if (!nh.getParam("base_link", base_link)) throw std::runtime_error(GravComp_fun_ + "Failed to load param \"base_link\"...");
-  ee_tf_pub.reset( new TfPosePublisher(std::bind(&Robot::getTaskPosition, robot.get()), std::bind(&Robot::getTaskOrientation, robot.get()), base_link,"robot-ee") );
+  ee_tf_pub.reset( new TfPosePublisher(std::bind(&rw_::Robot::getTaskPosition, robot.get()), std::bind(&rw_::Robot::getTaskOrientation, robot.get()), base_link,"robot-ee") );
 
 
   // =======  register signal SIGINT and signal handler  =======
@@ -106,7 +106,7 @@ void GravComp::launch()
   delete (this->gui); // must be destructed in this thread!
 }
 
-void GravComp::setMode(Robot::Mode mode)
+void GravComp::setMode(rw_::Mode mode)
 {
   this->robot->setMode(mode);
 }
@@ -118,8 +118,8 @@ ExecResultMsg GravComp::recPredefPoses()
   if (poses.size() == 0) return ExecResultMsg(ExecResultMsg::ERROR, "No predefined poses where specified...");
 
   // =====  Move to each pose and record wrench-quat  =====
-  Robot::Mode prev_mode = robot->getMode(); // store current robot mode
-  robot->setMode(Robot::JOINT_POS_CONTROL);
+  rw_::Mode prev_mode = robot->getMode(); // store current robot mode
+  robot->setMode(rw_::JOINT_POS_CONTROL);
   for (int k=0; k<poses.size(); k++)
   {
     robot->update(); // waits for the next tick
@@ -134,7 +134,7 @@ ExecResultMsg GravComp::recPredefPoses()
 
       // if (!isOk())
       t += robot->getCtrlCycle();
-      qref = Robot::get5thOrder(t, q0, qT, duration).col(0);
+      qref = rw_::get5thOrder(t, q0, qT, duration).col(0);
       robot->setJointsPosition(qref);
       robot->update(); // waits for the next tick
     }

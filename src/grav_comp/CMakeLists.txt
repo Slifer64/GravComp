@@ -32,10 +32,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   io_lib
   math_lib
-  lwr4p
-  ur_robot
-  ati_sensor
   robo_lib
+  robot_wrapper
   thread_lib
 )
 
@@ -61,10 +59,6 @@ set(SRC_LIST
   include/${PROJECT_NAME}/gui/set_poses_dialog.cpp
 
   src/source_list/grav_comp.cpp
-  src/source_list/robot/robot.cpp
-  src/source_list/robot/ur_robot.cpp
-  src/source_list/robot/lwr4p_robot.cpp
-
   src/main.cpp
 )
 
@@ -83,11 +77,9 @@ target_link_libraries(${PROJECT_NAME}
   armadillo
   io_lib
   math_lib
-  lwr4p
-  ur_robot
   robo_lib
+  robot_wrapper
   thread_lib
-  ati_sensor
   ${Qt_LIBRARIES}
   pthread
 )

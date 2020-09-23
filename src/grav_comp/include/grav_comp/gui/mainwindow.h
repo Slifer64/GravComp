@@ -25,7 +25,7 @@
 #include "view_wrench_dialog.h"
 #include "set_poses_dialog.h"
 #include <grav_comp/utils.h>
-#include <grav_comp/robot/robot.h>
+#include <robot_wrapper/robot.h>
 
 class GravComp;
 
@@ -41,7 +41,7 @@ public:
     IDLE = 57
   };
 
-  MainWindow(const Robot *robot, GravComp *grav_comp, QWidget *parent = 0);
+  MainWindow(const rw_::Robot *robot, GravComp *grav_comp, QWidget *parent = 0);
   ~MainWindow();
 
   void setMode(const Mode &m);
@@ -121,7 +121,7 @@ private:
   std::string load_data_path; ///< Path to load the mass-CoM data.
 
   GravComp *grav_comp; ///< Pointer to object with the execution functionalities.
-  const Robot *robot; ///< Pointer to object with the robot functionality.
+  const rw_::Robot *robot; ///< Pointer to object with the robot functionality.
   ViewPoseDialog *view_pose_dialog; ///< Pointer to QDialog object for displaying the robot tool pose.
   ViewJPosDialog *view_jpos_dialog; ///< Pointer to QDialog object for displaying the robot's joint angles.
   ViewWrenchDialog *view_wrench_dialog; ///< Pointer to QDialog object for displaying the robot's tool wrench.

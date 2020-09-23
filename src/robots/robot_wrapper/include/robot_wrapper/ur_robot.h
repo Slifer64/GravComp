@@ -1,10 +1,12 @@
-#ifndef GRAV_COMP_UR_ROBOT_H
-#define GRAV_COMP_UR_ROBOT_H
+#ifndef AS64_ROBOT_WRAPPER_UR_ROBOT_H
+#define AS64_ROBOT_WRAPPER_UR_ROBOT_H
 
-#include <grav_comp/robot/robot.h>
+#include <robot_wrapper/robot.h>
 #include <ur_robot/robot.h>
 //#include <ur_robot/sim_robot.h>
-#include <robo_lib/joint_state_publisher.h>
+
+namespace rw_
+{
 
 class Ur_Robot: public Robot
 {
@@ -14,17 +16,8 @@ public:
 
   void commandThread() override;
 
-  void setWrenchBias() override { if (ftsensor) ftsensor->setBias(); }
-
-  int getNumOfJoints() const override
-  { return robot->getNumJoints(); }
-
   std::string getErrMsg() const override
   { return err_msg; }
-
-  void publishJointStates(const std::string &publish_jstates_topic) override;
-
-  void useAtiSensor() override;
 
   arma::vec getTaskPosition() const override
   { return robot->getTaskPosition(); }
@@ -56,7 +49,7 @@ public:
   void setEmergencyStop(bool set) override
   {
     emergency_stop = set;
-    if (set) setMode(Robot::IDLE);
+    if (set) setMode(rw_::IDLE);
   }
 
   arma::vec getJointPosLowLim() const override
@@ -67,10 +60,7 @@ public:
 
   void stop() override;
 
-  void setMode(const Robot::Mode &mode) override;
-
-  double getCtrlCycle() const override
-  { return Ts; }
+  void setMode(const Mode &mode) override;
 
   bool isOk() const override
   { return robot->isOk(); }
@@ -85,20 +75,19 @@ public:
 
 private:
 
-  arma::vec getTaskWrenchFromAti() const;
-  arma::vec getTaskWrenchFromRobot() const;
+  void addJointState(sensor_msgs::JointState &joint_state_msg) override { robot->addJointState(joint_state_msg); }
+
+  arma::vec getTaskWrenchFromRobot() const override
+  { return robot->getTcpWrench(); }
 
   std::shared_ptr<ur_::Robot> robot;
-  robo_::JointStatePublisher jState_pub;
-  std::shared_ptr<ati::FTSensor> ftsensor;
-  std::function<arma::vec()> get_wrench_fun;
+  // void *robot;
 
   std::string err_msg;
-  int N_JOINTS;
   thr_::MtxVar<Mode> cmd_mode;
   thr_::Semaphore mode_change;
-
-  double Ts; // robot control cycle
 };
 
-#endif // GRAV_COMP_UR_ROBOT_H
+} // namespace rw_
+
+#endif // AS64_ROBOT_WRAPPER_UR_ROBOT_H
