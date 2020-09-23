@@ -241,6 +241,21 @@ void MainWindow::createMenus()
   view_menu->addSeparator();
   view_menu->addAction(view_wrench_act);
   view_menu->addAction(view_compWrench_act);
+  view_menu->addSeparator();
+  QMenu *rviz_menu = new QMenu("rviz");
+  view_ee_tf_act = new QAction("robot ee tf", this);
+  view_ee_tf_act->setCheckable(true);
+  view_ee_tf_act->setChecked(false);
+  QObject::connect( view_ee_tf_act, &QAction::triggered, this, [this]()
+  {
+    static bool is_view_ee_tf_act_checked = false;
+    is_view_ee_tf_act_checked = !is_view_ee_tf_act_checked;
+    view_ee_tf_act->setChecked(is_view_ee_tf_act_checked);
+    if (is_view_ee_tf_act_checked) grav_comp->ee_tf_pub->start();
+    else grav_comp->ee_tf_pub->stop();
+  });
+  rviz_menu->addAction(view_ee_tf_act);
+  view_menu->addMenu(rviz_menu);
   // view_menu->addSeparator();
 }
 

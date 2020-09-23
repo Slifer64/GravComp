@@ -11,6 +11,7 @@
 
 #include <grav_comp/robot/robot.h>
 #include <grav_comp/gui/mainwindow.h>
+#include <grav_comp/utils/tf_pose_publisher.h>
 
 class GravComp
 {
@@ -34,6 +35,8 @@ protected:
   ExecResultMsg saveCoMData(const std::string &save_path);
   ExecResultMsg loadWrenchOrientData(const std::string &path);
   ExecResultMsg saveWrenchOrientData(const std::string &path);
+
+  void launchPublishEEPose(unsigned pub_rate_ms = 200);
 
   void checkRobot();
   void setMode(Robot::Mode mode);
@@ -62,6 +65,8 @@ protected:
 
   thr_::Semaphore start_sem;
   thr_::Semaphore finish_sem;
+
+  std::shared_ptr<TfPosePublisher> ee_tf_pub;
 
   static void closeGUI(int);
   static MainWindow *gui_; // used to emit closeGUI signal

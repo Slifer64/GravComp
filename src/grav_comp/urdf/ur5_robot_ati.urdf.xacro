@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+       name="ur5" >
+
+  <!-- common stuff -->
+  <xacro:include filename="$(find ur_description)/urdf/common.gazebo.xacro" />
+
+  <!-- ur5 -->
+  <xacro:include filename="$(find ur_description)/urdf/ur5.urdf.xacro" />
+  <xacro:include filename="$(find ur_e_description)/urdf/ur5e.urdf.xacro" />
+
+  <!-- ati -->
+  <xacro:include filename="$(find ati_sensor_description)/urdf/ati_sensor.xacro"/>
+
+  <!-- ===============   ur5-robot  ================= -->
+  <property name="robot_name" value="ur5_"/>
+  <property name="robot_base" value="${robot_name}base_link"/>
+  <property name="robot_ee" value="${robot_name}tool0"/>
+
+  <xacro:ur5e_robot prefix="${robot_name}" joint_limited="$(arg limited)"/>
+
+
+  <!-- ===============   Ati sensor  ================= -->
+  <property name="sensor_name" value="ati_"/>
+
+  <xacro:ati_sensor name="${sensor_name}" />
+
+  <joint name="${sensor_name}${robot_name}joint" type="fixed">
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <parent link="${robot_ee}"/>
+      <child link="${sensor_name}ati_mini_40"/>
+  </joint>
+
+  <!-- ==========  End-effector link  ============= -->
+  <link name="ee_link" />
+
+  <joint name="ee_${robot_name}joint" type="fixed">
+      <origin xyz="0.0 0.0 0.022" rpy="0 0 0"/>
+      <parent link="${robot_ee}"/>
+      <child link="ee_link"/>
+  </joint>
+
+  <!-- ==========  world frame  ============= -->
+  <link name="world" />
+
+  <joint name="world_joint" type="fixed">
+    <parent link="world" />
+    <child link = "${robot_base}" />
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0" />
+  </joint>
+
+</robot>

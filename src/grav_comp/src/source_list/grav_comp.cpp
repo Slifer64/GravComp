@@ -41,7 +41,7 @@ GravComp::GravComp()
   if (nh.getParam("pub_jstates_flag", pub_jstates_flag) && pub_jstates_flag)
   {
     std::string pub_jstates_topic;
-    if (!nh.getParam("publish_jstates_topic", pub_jstates_topic)) throw std::runtime_error("Failed to load param \"pub_jstates_topic\"...");
+    if (!nh.getParam("publish_jstates_topic", pub_jstates_topic)) throw std::runtime_error(GravComp_fun_ + "Failed to load param \"pub_jstates_topic\"...");
     robot->publishJointStates(pub_jstates_topic);
   }
 
@@ -54,6 +54,7 @@ GravComp::GravComp()
     if (!nh.getParam("set_wrench_bias", set_wrench_bias) && set_wrench_bias) robot->setWrenchBias();
   }
 
+  // =======  Tool compensation  =======
   std::string tool_massCoM_file;
   std::string tool_param_name = "tool_massCoM_file";
   if (use_sim) tool_param_name = "dummy_tool_massCoM_file";
@@ -63,7 +64,13 @@ GravComp::GravComp()
     robot->setToolEstimator(tool_massCoM_file);
   }
 
-  // register signal SIGINT and signal handler
+  // =======  Robot ee tf publisher  =======
+  std::string base_link;
+  if (!nh.getParam("base_link", base_link)) throw std::runtime_error(GravComp_fun_ + "Failed to load param \"base_link\"...");
+  ee_tf_pub.reset( new TfPosePublisher(std::bind(&Robot::getTaskPosition, robot.get()), std::bind(&Robot::getTaskOrientation, robot.get()), base_link,"robot-ee") );
+
+
+  // =======  register signal SIGINT and signal handler  =======
   signal(SIGINT, GravComp::closeGUI);
 }
 

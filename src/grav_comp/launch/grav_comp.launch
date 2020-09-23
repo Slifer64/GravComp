@@ -4,11 +4,13 @@
 
   <arg name="ati_ip" default="192.168.1.1" />
 
+  <arg name="robot_ip" default="10.0.0.1" />
+
   <arg name="publish_jstates_topic" default="/robot_joint_states"/>
 
   <!-- robot model -->
   <arg name="limited" default="false"/>
-  <param unless="$(arg limited)" name="robot_description" command="$(find xacro)/xacro.py '$(find grav_comp)/urdf/ur5_robot.urdf.xacro' limited:=$(arg limited)" />
+  <param unless="$(arg limited)" name="robot_description" command="$(find xacro)/xacro.py '$(find grav_comp)/urdf/ur5_robot_ati.urdf.xacro' limited:=$(arg limited)" />
 
   <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" required="true">
     <rosparam param="source_list" subst_value="true">[$(arg publish_jstates_topic)]</rosparam>
@@ -25,7 +27,7 @@
 
     <param name="publish_jstates_topic" value="$(arg publish_jstates_topic)"/>
 
-    <param name="robot_ip" type="string" value="10.0.0.1" />
+    <param name="robot_ip" type="string" value="$(arg robot_ip)" />
 
     <param name="ati_ip" value="$(arg ati_ip)"/>
 
@@ -42,7 +44,7 @@
 
       robot_description_name: "/robot_description"
       base_link: "ur5_base_link"
-      tool_link: "ur5_tool0"
+      tool_link: "ee_link"
     </rosparam>
 
   </node>

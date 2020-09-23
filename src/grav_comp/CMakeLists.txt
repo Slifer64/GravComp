@@ -28,6 +28,8 @@ SET(Qt_LIBRARIES
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   roslib
+  geometry_msgs
+  tf
   io_lib
   math_lib
   lwr4p
@@ -39,6 +41,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 catkin_package(
   INCLUDE_DIRS include
+  CATKIN_DEPENDS roscpp geometry_msgs tf
   DEPENDS
 )
 

@@ -59,7 +59,9 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        tool:
+        ati_ati_mini_40:
+          Value: false
+        ee_link:
           Value: true
         ur5_base:
           Value: true
@@ -72,7 +74,7 @@ Visualization Manager:
         ur5_shoulder_link:
           Value: false
         ur5_tool0:
-          Value: true
+          Value: false
         ur5_upper_arm_link:
           Value: false
         ur5_wrist_1_link:
@@ -85,14 +87,12 @@ Visualization Manager:
           Value: false
       Marker Scale: 1
       Name: TF
-      Show Arrows: true
+      Show Arrows: false
       Show Axes: true
       Show Names: true
       Tree:
         world:
           ur5_base_link:
-            tool:
-              {}
             ur5_base:
               {}
             ur5_shoulder_link:
@@ -104,7 +104,10 @@ Visualization Manager:
                         ur5_ee_link:
                           {}
                         ur5_tool0:
-                          {}
+                          ati_ati_mini_40:
+                            {}
+                          ee_link:
+                            {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -117,6 +120,15 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
+        ati_ati_mini_40:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ee_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         ur5_base:
           Alpha: 1
           Show Axes: false
@@ -200,7 +212,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.80546749
+      Distance: 1.70369744
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -215,10 +227,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.0553977415
+      Pitch: 0.365397811
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.0504091196
+      Yaw: 3.74859643
     Saved: ~
 Window Geometry:
   Displays:
