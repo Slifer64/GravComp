@@ -8,6 +8,7 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QCloseEvent>
+#include <QComboBox>
 
 #include <functional>
 #include <armadillo>
@@ -17,32 +18,42 @@
 
 class ViewWrenchDialog : public QDialog
 {
-    Q_OBJECT
+  Q_OBJECT
 
 public:
-    ViewWrenchDialog(std::function<arma::vec()> readWrench, QWidget *parent = 0);
-    ~ViewWrenchDialog();
+  ViewWrenchDialog(std::function<arma::vec()> readWrench, std::function<arma::mat()> getRelRot, QWidget *parent = 0);
+  ~ViewWrenchDialog();
 
 public slots:
-    void launch();
-    void stop();
+  void launch();
+  void stop();
+
+private slots:
+  void refFrameChangedSlot(const QString &ref_frame);
 
 private:
-    MyLineEdit *fx_le;
-    MyLineEdit *fy_le;
-    MyLineEdit *fz_le;
-    MyLineEdit *tx_le;
-    MyLineEdit *ty_le;
-    MyLineEdit *tz_le;
+  MyLineEdit *fx_le;
+  MyLineEdit *fy_le;
+  MyLineEdit *fz_le;
+  MyLineEdit *tx_le;
+  MyLineEdit *ty_le;
+  MyLineEdit *tz_le;
 
-    bool run;
-    std::function<arma::vec()> readWrench;
+  QComboBox *ref_frame_cmbx;
 
-    void updateDialogThread();
+  bool run;
+  std::function<arma::vec()> read_wrench;
+  std::function<arma::mat()> get_rel_rot;
 
-    MyLineEdit *createLineEdit();
+  std::function<arma::vec()> get_wrench;
+  arma::vec getLocalWrench();
+  arma::vec getBaseWrench();
 
-    void closeEvent(QCloseEvent *event) override;
+  void updateDialogThread();
+
+  MyLineEdit *createLineEdit();
+
+  void closeEvent(QCloseEvent *event) override;
 };
 
 #endif // VIEW_WRENCH_DIALOG_H

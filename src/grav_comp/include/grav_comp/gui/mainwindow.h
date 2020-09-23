@@ -147,6 +147,7 @@ private:
   QAction *view_compWrench_act;
   QAction *set_predef_poses_act; ///< Triggers a QAction connected with the launch of 'set_predef_poses_dialog'.
   QAction *view_ee_tf_act;
+  QAction *view_CoM_tf_act;
 
   // ======  widgets  ========
   QWidget *central_widget;

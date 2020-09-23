@@ -67,6 +67,7 @@ protected:
   thr_::Semaphore finish_sem;
 
   std::shared_ptr<TfPosePublisher> ee_tf_pub;
+  std::shared_ptr<TfPosePublisher> com_tf_pub;
 
   static void closeGUI(int);
   static MainWindow *gui_; // used to emit closeGUI signal

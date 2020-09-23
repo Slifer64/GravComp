@@ -242,20 +242,38 @@ void MainWindow::createMenus()
   view_menu->addAction(view_wrench_act);
   view_menu->addAction(view_compWrench_act);
   view_menu->addSeparator();
+  // --------------------------------------------
   QMenu *rviz_menu = new QMenu("rviz");
+
   view_ee_tf_act = new QAction("robot ee tf", this);
   view_ee_tf_act->setCheckable(true);
   view_ee_tf_act->setChecked(false);
   QObject::connect( view_ee_tf_act, &QAction::triggered, this, [this]()
   {
-    static bool is_view_ee_tf_act_checked = false;
-    is_view_ee_tf_act_checked = !is_view_ee_tf_act_checked;
-    view_ee_tf_act->setChecked(is_view_ee_tf_act_checked);
-    if (is_view_ee_tf_act_checked) grav_comp->ee_tf_pub->start();
+    static bool checked_ = false;
+    checked_ = !checked_;
+    view_ee_tf_act->setChecked(checked_);
+    if (checked_) grav_comp->ee_tf_pub->start();
     else grav_comp->ee_tf_pub->stop();
   });
   rviz_menu->addAction(view_ee_tf_act);
+
+  view_CoM_tf_act = new QAction("CoM tf", this);
+  view_CoM_tf_act->setCheckable(true);
+  view_CoM_tf_act->setChecked(false);
+  QObject::connect( view_CoM_tf_act, &QAction::triggered, this, [this]()
+  {
+    static bool checked_ = false;
+    checked_ = !checked_;
+    view_CoM_tf_act->setChecked(checked_);
+    if (checked_) grav_comp->com_tf_pub->start(1000);
+    else grav_comp->com_tf_pub->stop();
+  });
+  rviz_menu->addAction(view_CoM_tf_act);
+
   view_menu->addMenu(rviz_menu);
+  // --------------------------------------------
+
   // view_menu->addSeparator();
 }
 
@@ -264,8 +282,8 @@ void MainWindow::createWidgets()
   QFont font1("Ubuntu", 13, QFont::DemiBold);
   QFont font2("Ubuntu", 15, QFont::DemiBold);
 
-  view_wrench_dialog = new ViewWrenchDialog(std::bind(&rw_::Robot::getTaskWrench, robot), this);
-  view_compWrench_dialog = new ViewWrenchDialog(std::bind(&rw_::Robot::getCompTaskWrench, robot), this);
+  view_wrench_dialog = new ViewWrenchDialog(std::bind(&rw_::Robot::getTaskWrench, robot), std::bind(&rw_::Robot::getTaskRotMat, robot), this);
+  view_compWrench_dialog = new ViewWrenchDialog(std::bind(&rw_::Robot::getCompTaskWrench, robot), std::bind(&rw_::Robot::getTaskRotMat, robot), this);
   view_pose_dialog = new ViewPoseDialog(std::bind(&rw_::Robot::getTaskPosition, robot), std::bind(&rw_::Robot::getTaskOrientation, robot), this);
   view_jpos_dialog = new ViewJPosDialog(robot->getJointPosLowLim(), robot->getJointPosUpperLim(), std::bind(&rw_::Robot::getJointsPosition, robot), this);
   view_jpos_dialog->setJointNames(robot->getJointNames());
