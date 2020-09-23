@@ -63,6 +63,8 @@ Visualization Manager:
           Value: false
         ee_link:
           Value: true
+        robot-ee:
+          Value: true
         ur5_base:
           Value: true
         ur5_base_link:
@@ -93,6 +95,8 @@ Visualization Manager:
       Tree:
         world:
           ur5_base_link:
+            robot-ee:
+              {}
             ur5_base:
               {}
             ur5_shoulder_link:
@@ -212,7 +216,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1.70369744
+      Distance: 1.69908893
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -227,10 +231,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Pitch: 0.365397811
+      Pitch: 0.0253978334
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.74859643
+      Yaw: 3.81859922
     Saved: ~
 Window Geometry:
   Displays:

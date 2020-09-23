@@ -38,7 +38,7 @@
       pub_jstates_flag: true
 
       use_sim: false
-      use_ati: true
+      use_ati: false
 
       ee_tool_rot: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 
