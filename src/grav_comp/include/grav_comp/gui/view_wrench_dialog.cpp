@@ -112,7 +112,7 @@ void ViewWrenchDialog::refFrameChangedSlot(const QString &ref_frame)
 {
   if (ref_frame.compare("sensor")==0) get_wrench = std::bind(&ViewWrenchDialog::getLocalWrench, this);
   else if (ref_frame.compare("base")==0) get_wrench = std::bind(&ViewWrenchDialog::getBaseWrench, this);
-  else throw std::runtime_error(ViewWrenchDialog_fun_ + "Invalid option...");
+  else throw std::runtime_error(ViewWrenchDialog_fun_ + "Invalid option: \"" + ref_frame.toStdString() + "\"...\n");
 }
 
 

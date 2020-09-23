@@ -29,6 +29,7 @@ Ur_Robot::Ur_Robot(bool use_sim)
 
   std::vector<double> temp;
   if (nh.getParam("Fext_dead_zone",temp)) Fext_dead_zone = temp;
+  else Fext_dead_zone = arma::vec().zeros(6);
 
   // Initialize generic robot with the kuka-lwr model
   std::cerr << "=======> Creating robot...\n";

@@ -100,7 +100,16 @@ public:
   }
 
   arma::vec getTcpWrench() const override
-  { return ur_driver->getTcpWrench(); }
+  {
+    arma::vec wrench = ur_driver->getTcpWrench();
+    // std::cerr << "-------------------------------------\n";
+    // std::cerr << "world force = " << wrench.subvec(0,2).t() << "\n";
+    // arma::mat R = getTaskRotm();
+    // wrench.subvec(0,2) = R.t()*wrench.subvec(0,2);
+    // std::cerr << "local force = " << wrench.subvec(0,2).t() << "\n";
+    // wrench.subvec(3,5) = R*wrench.subvec(3,5);
+    // return ur_driver->getTcpWrench();
+  }
 
 
   double servo_a, servo_v, servo_T, servo_lookahead_time, servo_gain;

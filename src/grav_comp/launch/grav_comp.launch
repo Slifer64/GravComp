@@ -10,7 +10,7 @@
 
   <!-- robot model -->
   <arg name="limited" default="false"/>
-  <param unless="$(arg limited)" name="robot_description" command="$(find xacro)/xacro.py '$(find grav_comp)/urdf/ur5_robot_ati.urdf.xacro' limited:=$(arg limited)" />
+  <param unless="$(arg limited)" name="robot_description" command="$(find xacro)/xacro.py '$(find grav_comp)/urdf/ur5_robot.urdf.xacro' limited:=$(arg limited)" />
 
   <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" required="true">
     <rosparam param="source_list" subst_value="true">[$(arg publish_jstates_topic)]</rosparam>

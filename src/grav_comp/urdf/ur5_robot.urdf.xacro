@@ -10,7 +10,19 @@
   <xacro:include filename="$(find ur_e_description)/urdf/ur5e.urdf.xacro" />
 
   <!-- arm -->
-  <xacro:ur5e_robot prefix="ur5_" joint_limited="$(arg limited)"/>
+  <property name="robot_name" value="ur5_"/>
+  <property name="robot_base" value="${robot_name}base_link"/>
+  <property name="robot_ee" value="${robot_name}tool0"/>
+  <xacro:ur5e_robot prefix="${robot_name}" joint_limited="$(arg limited)"/>
+
+  <!-- ==========  End-effector link  ============= -->
+  <link name="ee_link" />
+
+  <joint name="ee_${robot_name}joint" type="fixed">
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <parent link="${robot_ee}"/>
+      <child link="ee_link"/>
+  </joint>
 
   <link name="world" />
 

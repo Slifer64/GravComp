@@ -157,14 +157,15 @@ ExecResultMsg GravComp::recordCurrentWrenchQuat()
 {
   try
   {
-    arma::mat R = robot->getTaskRotMat();
-
     arma::vec wrench_temp = arma::vec().zeros(6);
     for (int i=0; i<20; i++)
     {
-      wrench_temp += R.t()*robot->getTaskWrench();
+      wrench_temp += robot->getTaskWrench();
     }
     wrench_temp = wrench_temp/20; // to alleviate the noise
+    arma::mat R = robot->getTaskRotMat();
+    wrench_temp.subvec(0,2) = R.t()*wrench_temp.subvec(0,2);
+    wrench_temp.subvec(3,5) = R.t()*wrench_temp.subvec(3,5);
     Eigen::Map<Eigen::Vector6d> wrench(wrench_temp.memptr());
     Wrench_data.push_back(wrench);
 
