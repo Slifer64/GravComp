@@ -525,7 +525,11 @@ void MainWindow::loadPredefPosesTriggered()
 
 void MainWindow::loadWrenchOrientTriggered()
 {
-  std::string path = QFileDialog::getOpenFileName(this, tr("Load wrench-orient Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
+  //std::string path = QFileDialog::getOpenFileName(this, tr("Load wrench-orient Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
+  std::string path;
+  if (!ros::NodeHandle("~").getParam("wrench_orient_data_filename", path)) path="";
+  path = default_data_path + path;
+
   if (path.empty()) return;
 
   load_wrenchOrient = true;
@@ -561,7 +565,11 @@ void MainWindow::updateGUIonLoadWrenchOrient()
 
 void MainWindow::saveWrenchOrientTriggered()
 {
-  std::string path = QFileDialog::getSaveFileName(this, tr("Save Recorded wrench-orient data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
+  //std::string path = QFileDialog::getSaveFileName(this, tr("Save Recorded wrench-orient data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
+  std::string path;
+  if (!ros::NodeHandle("~").getParam("wrench_orient_data_filename", path)) path="";
+  path = default_data_path + path;
+
   if (path.empty()) return;
 
   save_wrenchOrient = true;

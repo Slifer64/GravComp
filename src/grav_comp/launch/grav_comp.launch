@@ -34,6 +34,7 @@
     <rosparam>
       robot_type: "ur"
       CoM_filename: "CoM.yaml"
+      wrench_orient_data_filename: "data.bin"
 
       pub_jstates_flag: true
 
