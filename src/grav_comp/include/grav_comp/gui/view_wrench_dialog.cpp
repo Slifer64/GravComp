@@ -35,12 +35,12 @@ ViewWrenchDialog::ViewWrenchDialog(std::function<arma::vec()> readWrench, std::f
   ref_frame_lb->setStyleSheet("font: 75 14pt;");
   ref_frame_lb->setAlignment(Qt::AlignCenter);
   ref_frame_cmbx = new QComboBox;
-  ref_frame_cmbx->addItem("sensor");
   ref_frame_cmbx->addItem("base");
+  ref_frame_cmbx->addItem("sensor");
   ref_frame_cmbx->setMaximumWidth(90);
   //ref_frame_cmbx->setCurrentIndex(0); // degrees
   QObject::connect(ref_frame_cmbx, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(refFrameChangedSlot(const QString &)));
-  emit ref_frame_cmbx->currentIndexChanged("sensor");
+  emit ref_frame_cmbx->currentIndexChanged("base");
 
   QHBoxLayout *ref_frame_layout = new QHBoxLayout;
   ref_frame_layout->addWidget(ref_frame_lb);
