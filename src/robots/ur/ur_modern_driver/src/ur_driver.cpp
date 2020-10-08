@@ -16,21 +16,21 @@
  * limitations under the License.
  */
 
-#include "ur_modern_driver/ur_driver.h"
-
+#include <ur_modern_driver/ur_driver.h>
 #include <ur_modern_driver/utils.h>
+#include <ur_modern_driver/socket_com.h>
 
-#include <tf/transform_broadcaster.h>
+#include <ros/package.h>
 
-UrDriver::UrDriver(std::string host, unsigned int reverse_port, double servoj_time,
-		unsigned int safety_count_max, double max_time_step, double min_payload,
-		double max_payload, double servoj_lookahead_time, double servoj_gain) :
+using namespace ur_;
+
+#define UrDriver_fun_ std::string("[UrDriver::") + __func__ + "]: "
+
+UrDriver::UrDriver(std::string host, unsigned int reverse_port, double servoj_time, double max_time_step,
+	  double min_payload, double max_payload, double servoj_lookahead_time, double servoj_gain) :
 		REVERSE_PORT_(reverse_port), maximum_time_step_(max_time_step), minimum_payload_(min_payload),
 		maximum_payload_(max_payload), servoj_time_(servoj_time), servoj_lookahead_time_(servoj_lookahead_time), servoj_gain_(servoj_gain)
 {
-	joint_pos_cmd = arma::vec().zeros(6,1);
-  joint_vel_cmd = arma::vec().zeros(6,1);
-
   t = 0;
   joint_pos = {6, 0.0};
   joint_vel = {6, 0.0};
@@ -47,235 +47,86 @@ UrDriver::UrDriver(std::string host, unsigned int reverse_port, double servoj_ti
     reverse_port = 50001;
   }
 
-	char buffer[256];
-	struct sockaddr_in serv_addr;
-	int n, flag;
-
   // joint_offsets_ = {6, 0.0};
 
 	firmware_version_ = 0;
 	reverse_connected_ = false;
 	executing_traj_ = false;
-	rt_interface_ = new UrRealtimeCommunication(rt_msg_sem, host, safety_count_max);
+	rt_interface_ = new UrRealtimeCommunication(rt_msg_sem, host);
 	new_sockfd_ = -1;
 	sec_interface_ = new UrCommunication(msg_sem, host);
 
-	incoming_sockfd_ = socket(AF_INET, SOCK_STREAM, 0);
+	incoming_sockfd_ = com_::openSocket(AF_INET, SOCK_STREAM);
 	if (incoming_sockfd_ < 0) print_fatal("ERROR opening socket for reverse communication");
-	bzero((char *) &serv_addr, sizeof(serv_addr));
-
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = INADDR_ANY;
-	serv_addr.sin_port = htons(REVERSE_PORT_);
-	flag = 1;
-	setsockopt(incoming_sockfd_, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
-	setsockopt(incoming_sockfd_, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(int));
-	if (bind(incoming_sockfd_, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-	{
-		print_fatal("ERROR on binding socket for reverse communication");
-	}
-	listen(incoming_sockfd_, 5);
 
 	keep_alive_ = true;
 }
 
 UrDriver::~UrDriver()
 {
+	stopReverseCom();
   delete rt_interface_;
   delete sec_interface_;
 }
 
-std::vector<double> UrDriver::interp_cubic(double t, double T,
-		std::vector<double> p0_pos, std::vector<double> p1_pos,
-		std::vector<double> p0_vel, std::vector<double> p1_vel)
+void UrDriver::startReverseCom()
 {
-	/*Returns positions of the joints at time 't' */
-	std::vector<double> positions;
-	for (unsigned int i = 0; i < p0_pos.size(); i++) {
-		double a = p0_pos[i];
-		double b = p0_vel[i];
-		double c = (-3 * p0_pos[i] + 3 * p1_pos[i] - 2 * T * p0_vel[i]
-				- T * p1_vel[i]) / pow(T, 2);
-		double d = (2 * p0_pos[i] - 2 * p1_pos[i] + T * p0_vel[i]
-				+ T * p1_vel[i]) / pow(T, 3);
-		positions.push_back(a + b * t + c * pow(t, 2) + d * pow(t, 3));
-	}
-	return positions;
-}
+	std::string filename = ros::package::getPath("ur_modern_driver") + "/config/ur_driver_program.txt";
+	std::string program_;
+	ur_::readFile(filename, program_);
 
-bool UrDriver::doTraj(std::vector<double> inp_timestamps,
-		std::vector<std::vector<double> > inp_positions,
-		std::vector<std::vector<double> > inp_velocities)
-{
-	std::chrono::high_resolution_clock::time_point t0, t;
-	std::vector<double> positions;
-	unsigned int j;
+	struct sockaddr_in serv_addr;
+	bzero((char *) &serv_addr, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = INADDR_ANY;
+	serv_addr.sin_port = htons(REVERSE_PORT_);
 
-	if (!UrDriver::uploadProg()) {
-		return false;
-	}
-	executing_traj_ = true;
-	t0 = std::chrono::high_resolution_clock::now();
-	t = t0;
-	j = 0;
-	while ((inp_timestamps[inp_timestamps.size() - 1]
-			>= std::chrono::duration_cast<std::chrono::duration<double>>(t - t0).count())
-			and executing_traj_) {
-		while (inp_timestamps[j]
-				<= std::chrono::duration_cast<std::chrono::duration<double>>(
-						t - t0).count() && j < inp_timestamps.size() - 1) {
-			j += 1;
-		}
-		positions = UrDriver::interp_cubic(
-				std::chrono::duration_cast<std::chrono::duration<double>>(
-						t - t0).count() - inp_timestamps[j - 1],
-				inp_timestamps[j] - inp_timestamps[j - 1], inp_positions[j - 1],
-				inp_positions[j], inp_velocities[j - 1], inp_velocities[j]);
-		UrDriver::servoj(positions);
+	// com_::setNoDelay(incoming_sockfd_, true);
+	com_::setReuseAddr(incoming_sockfd_, true);
 
-		// oversample with 4 * sample_time
-		std::this_thread::sleep_for(
-				std::chrono::milliseconds((int) ((servoj_time_ * 1000) / 4.)));
-		t = std::chrono::high_resolution_clock::now();
-	}
-	executing_traj_ = false;
-	//Signal robot to stop driverProg()
-	UrDriver::closeServo(positions);
-	return true;
-}
+	if (bind(incoming_sockfd_, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+		throw std::runtime_error("ERROR on binding socket for reverse communication");
 
-void UrDriver::servoj(std::vector<double> positions, int keepalive)
-{
-	if (!reverse_connected_) {
-		print_error(
-				"UrDriver::servoj called without a reverse connection present. Keepalive: "
-						+ std::to_string(keepalive));
-		return;
-	}
-	unsigned int bytes_written;
-	int tmp;
-	unsigned char buf[28];
-	for (int i = 0; i < 6; i++) {
-		tmp = htonl((int) (positions[i] * MULT_JOINTSTATE_));
-		buf[i * 4] = tmp & 0xff;
-		buf[i * 4 + 1] = (tmp >> 8) & 0xff;
-		buf[i * 4 + 2] = (tmp >> 16) & 0xff;
-		buf[i * 4 + 3] = (tmp >> 24) & 0xff;
-	}
-	tmp = htonl((int) keepalive);
-	buf[6 * 4] = tmp & 0xff;
-	buf[6 * 4 + 1] = (tmp >> 8) & 0xff;
-	buf[6 * 4 + 2] = (tmp >> 16) & 0xff;
-	buf[6 * 4 + 3] = (tmp >> 24) & 0xff;
-	bytes_written = write(new_sockfd_, buf, 28);
-}
+	if ( listen(incoming_sockfd_, 1) < 0 ) // listen(server_fid, SOMAXCONN)
+		throw std::runtime_error(UrDriver_fun_ + "Error on \"listen()\"...\n");
 
-void UrDriver::stopTraj()
-{
-	executing_traj_ = false;
-	rt_interface_->addCommandToQueue("stopj(10)\n");
-}
+	com_::setNonBlocking(incoming_sockfd_, true);
 
-bool UrDriver::uploadProg()
-{
-	std::string cmd_str;
-	char buf[128];
-	cmd_str = "def driverProg():\n";
+	setUrScriptCmd(program_);
 
-	sprintf(buf, "\tMULT_jointstate = %i\n", MULT_JOINTSTATE_);
-	cmd_str += buf;
+	struct timeval timeout;
+	timeout.tv_sec = 10;
+	timeout.tv_usec = 0;
+	int err_code;
+	com_::WaitResult res = com_::waitForRead(incoming_sockfd_, timeout, &err_code);
 
-	cmd_str += "\tSERVO_IDLE = 0\n";
-	cmd_str += "\tSERVO_RUNNING = 1\n";
-	cmd_str += "\tcmd_servo_state = SERVO_IDLE\n";
-	cmd_str += "\tcmd_servo_q = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]\n";
-	cmd_str += "\tdef set_servo_setpoint(q):\n";
-	cmd_str += "\t\tenter_critical\n";
-	cmd_str += "\t\tcmd_servo_state = SERVO_RUNNING\n";
-	cmd_str += "\t\tcmd_servo_q = q\n";
-	cmd_str += "\t\texit_critical\n";
-	cmd_str += "\tend\n";
-	cmd_str += "\tthread servoThread():\n";
-	cmd_str += "\t\tstate = SERVO_IDLE\n";
-	cmd_str += "\t\twhile True:\n";
-	cmd_str += "\t\t\tenter_critical\n";
-	cmd_str += "\t\t\tq = cmd_servo_q\n";
-	cmd_str += "\t\t\tdo_brake = False\n";
-	cmd_str += "\t\t\tif (state == SERVO_RUNNING) and ";
-	cmd_str += "(cmd_servo_state == SERVO_IDLE):\n";
-	cmd_str += "\t\t\t\tdo_brake = True\n";
-	cmd_str += "\t\t\tend\n";
-	cmd_str += "\t\t\tstate = cmd_servo_state\n";
-	cmd_str += "\t\t\tcmd_servo_state = SERVO_IDLE\n";
-	cmd_str += "\t\t\texit_critical\n";
-	cmd_str += "\t\t\tif do_brake:\n";
-	cmd_str += "\t\t\t\tstopj(1.0)\n";
-	cmd_str += "\t\t\t\tsync()\n";
-	cmd_str += "\t\t\telif state == SERVO_RUNNING:\n";
-
-	if (sec_interface_->robot_state_.getVersion() >= 3.1)
-		sprintf(buf, "\t\t\t\tservoj(q, t=%.4f, lookahead_time=%.4f, gain=%.0f)\n", servoj_time_, servoj_lookahead_time_, servoj_gain_);
-	else
-		sprintf(buf, "\t\t\t\tservoj(q, t=%.4f)\n", servoj_time_);
-	cmd_str += buf;
-
-	cmd_str += "\t\t\telse:\n";
-	cmd_str += "\t\t\t\tsync()\n";
-	cmd_str += "\t\t\tend\n";
-	cmd_str += "\t\tend\n";
-	cmd_str += "\tend\n";
-
-	sprintf(buf, "\tsocket_open(\"%s\", %i)\n", ip_addr_.c_str(), REVERSE_PORT_);
-	cmd_str += buf;
-
-	cmd_str += "\tthread_servo = run servoThread()\n";
-	cmd_str += "\tkeepalive = 1\n";
-	cmd_str += "\twhile keepalive > 0:\n";
-	cmd_str += "\t\tparams_mult = socket_read_binary_integer(6+1)\n";
-	cmd_str += "\t\tif params_mult[0] > 0:\n";
-	cmd_str += "\t\t\tq = [params_mult[1] / MULT_jointstate, ";
-	cmd_str += "params_mult[2] / MULT_jointstate, ";
-	cmd_str += "params_mult[3] / MULT_jointstate, ";
-	cmd_str += "params_mult[4] / MULT_jointstate, ";
-	cmd_str += "params_mult[5] / MULT_jointstate, ";
-	cmd_str += "params_mult[6] / MULT_jointstate]\n";
-	cmd_str += "\t\t\tkeepalive = params_mult[7]\n";
-	cmd_str += "\t\t\tset_servo_setpoint(q)\n";
-	cmd_str += "\t\tend\n";
-	cmd_str += "\tend\n";
-	cmd_str += "\tsleep(.1)\n";
-	cmd_str += "\tsocket_close()\n";
-	cmd_str += "\tkill thread_servo\n";
-	cmd_str += "end\n";
-
-	rt_interface_->addCommandToQueue(cmd_str);
-	return UrDriver::openServo();
-}
-
-bool UrDriver::openServo()
-{
+	print_debug(UrDriver_fun_ + "Waiting to accept client...\n");
 	struct sockaddr_in cli_addr;
 	socklen_t clilen;
 	clilen = sizeof(cli_addr);
-	new_sockfd_ = accept(incoming_sockfd_, (struct sockaddr *) &cli_addr,
-			&clilen);
-	if (new_sockfd_ < 0) {
-		print_fatal("ERROR on accepting reverse communication");
-		return false;
+	new_sockfd_ = accept(incoming_sockfd_, (struct sockaddr *) &cli_addr, &clilen);
+
+	if (res != com_::READY)
+	{
+		if (res == com_::ERROR) throw std::runtime_error(UrDriver_fun_ + com_::getErrMsg(err_code));
+		if (res == com_::TIMEOUT) throw std::runtime_error(UrDriver_fun_ + "Timeout reached on waiting to accept client...\n");
 	}
+
+	if (new_sockfd_ < 0) throw std::runtime_error(UrDriver_fun_ + "ERROR on accepting reverse communication");
+
+	print_debug(UrDriver_fun_ + "Listening on " + com_::getLocalIp(new_sockfd_) + ":" + std::to_string(com_::getLocalPort(new_sockfd_)) + "\n");
+
 	reverse_connected_ = true;
-	return true;
 }
 
-void UrDriver::closeServo(std::vector<double> positions)
+void UrDriver::stopReverseCom()
 {
-	if (positions.size() != 6)
-		UrDriver::servoj(rt_interface_->robot_state_.getQActual(), 0);
-	else
-		UrDriver::servoj(positions, 0);
-
-	reverse_connected_ = false;
-	close(new_sockfd_);
+	if (reverse_connected_)
+	{
+		rt_interface_->addCommandToQueue("stopj(10)\n");
+		reverse_connected_ = false;
+		close(new_sockfd_);
+	}
 }
 
 bool UrDriver::start()
@@ -285,6 +136,7 @@ bool UrDriver::start()
 	rt_interface_->robot_state_.setVersion(firmware_version_);
 	if (!rt_interface_->start()) return false;
 	ip_addr_ = rt_interface_->getLocalIp();
+	std::cout << ("Listening on " + ip_addr_ + ":" + std::to_string(REVERSE_PORT_) + "\n");
 	print_debug("Listening on " + ip_addr_ + ":" + std::to_string(REVERSE_PORT_) + "\n");
 
 	// launch thread for reading the robot's state
@@ -295,6 +147,7 @@ bool UrDriver::start()
   if (err_code) ur_::PRINT_WARNING_MSG("[UrDriver::start]: Failed to set thread priority! Reason:\n" + ur_::setThreadPriorErrMsg(err_code) + "\n", std::cerr);
   // else PRINT_INFO_MSG("[UrDriver::start]: Set thread priority successfully!\n", std::cerr);
 
+	startReverseCom();
 
   return true;
 }
@@ -307,21 +160,6 @@ void UrDriver::halt()
 	close(incoming_sockfd_);
 
   if (rt_read_thread_.joinable()) rt_read_thread_.join();
-}
-
-void UrDriver::setSpeed(double q0, double q1, double q2, double q3, double q4, double q5, double acc)
-{
-	rt_interface_->setSpeed(q0, q1, q2, q3, q4, q5, acc);
-}
-
-std::vector<std::string> UrDriver::getJointNames()
-{
-	return joint_names_;
-}
-
-void UrDriver::setJointNames(std::vector<std::string> jn)
-{
-	joint_names_ = jn;
 }
 
 void UrDriver::setToolVoltage(unsigned int v)
@@ -392,12 +230,8 @@ bool UrDriver::setPayload(double m)
 
 void UrDriver::setMinPayload(double m)
 {
-	if (m > 0) {
-		minimum_payload_ = m;
-	} else {
-		minimum_payload_ = 0;
-	}
-
+	if (m > 0) minimum_payload_ = m;
+	else minimum_payload_ = 0;
 }
 
 void UrDriver::setMaxPayload(double m)
@@ -407,22 +241,19 @@ void UrDriver::setMaxPayload(double m)
 
 void UrDriver::setServojTime(double t)
 {
-	if (t > 0.008) {
-		servoj_time_ = t;
-	} else {
-		servoj_time_ = 0.008;
-	}
+	if (t > 0.008) servoj_time_ = t;
+	else servoj_time_ = 0.008;
 }
 
 void UrDriver::setServojLookahead(double t)
 {
-	if (t > 0.03) {
-		if (t < 0.2) {
-			servoj_lookahead_time_ = t;
-		} else {
-			servoj_lookahead_time_ = 0.2;
-		}
-	} else {
+	if (t > 0.03)
+	{
+		if (t < 0.2) servoj_lookahead_time_ = t;
+		else servoj_lookahead_time_ = 0.2;
+	}
+	else
+	{
 		servoj_lookahead_time_ = 0.03;
 	}
 }
@@ -550,4 +381,56 @@ void UrDriver::readMbMsg()
 
     sec_interface_->robot_state_.finishedReading();
   }
+}
+
+char *UrDriver::writeDouble(char *buf, double val)
+{
+	return writeInt(buf, (int) (val * MULT_JOINTSTATE_));
+}
+
+char *UrDriver::writeInt(char *buf, int val)
+{
+	val = htonl(val);
+	*buf++ = val & 0xff;
+	*buf++ = (val >> 8) & 0xff;
+	*buf++ = (val >> 16) & 0xff;
+	*buf++ = (val >> 24) & 0xff;
+
+	return buf;
+}
+
+void UrDriver::writeCommand(int state, const arma::vec &cmd_, double vel, double accel)
+{
+	const int len = 4*9;
+	char buff[len];
+	// memset(buff, 0, len);
+
+	char *ptr = buff;
+	ptr = writeInt(ptr, state);
+	for (int i=0; i<6; i++) ptr = writeDouble(ptr, cmd_(i));
+	ptr = writeDouble(ptr, vel);
+	ptr = writeDouble(ptr, accel);
+
+	int n_bytes = ur_::com_::write(new_sockfd_, buff, len, true);
+	if (n_bytes != len) throw std::runtime_error("Error: sent bytes=" + std::to_string(n_bytes) + ", bytes to send=" + std::to_string(len) + "\n");
+}
+
+void UrDriver::freedrive_mode()
+{
+	const int len = 4;
+	char buff[len];
+	writeInt(buff, FREEDRIVE);
+
+	int n_bytes = ur_::com_::write(new_sockfd_, buff, len, true);
+	if (n_bytes != len) throw std::runtime_error("Error: sent bytes=" + std::to_string(n_bytes) + ", bytes to send=" + std::to_string(len) + "\n");
+}
+
+void UrDriver::biasFtSensor()
+{
+	const int len = 4;
+	char buff[len];
+	writeInt(buff, BIAS_FT_SENSOR);
+
+	int n_bytes = ur_::com_::write(new_sockfd_, buff, len, true);
+	if (n_bytes != len) throw std::runtime_error("Error: sent bytes=" + std::to_string(n_bytes) + ", bytes to send=" + std::to_string(len) + "\n");
 }

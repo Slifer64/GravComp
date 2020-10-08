@@ -11,7 +11,9 @@
 
 #include <robot_wrapper/robot.h>
 #include <grav_comp/gui/mainwindow.h>
-#include <grav_comp/utils/tf_pose_publisher.h>
+#include <rviz_lib/tf_pose_publisher.h>
+
+using namespace as64_;
 
 class GravComp
 {
@@ -66,8 +68,8 @@ protected:
   thr_::Semaphore start_sem;
   thr_::Semaphore finish_sem;
 
-  std::shared_ptr<TfPosePublisher> ee_tf_pub;
-  std::shared_ptr<TfPosePublisher> com_tf_pub;
+  std::shared_ptr<rviz_::TfPosePublisher> ee_tf_pub;
+  std::shared_ptr<rviz_::TfPosePublisher> com_tf_pub;
 
   static void closeGUI(int);
   static MainWindow *gui_; // used to emit closeGUI signal

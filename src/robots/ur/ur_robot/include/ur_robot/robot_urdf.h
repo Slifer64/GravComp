@@ -24,9 +24,6 @@
 #include <armadillo>
 #include <ur_robot/utils.h>
 
-namespace as64_
-{
-
 namespace ur_
 {
 
@@ -82,7 +79,5 @@ private:
 };
 
 }; // namespace ur_
-
-}; // namespace as64_
 
 #endif // UR_ROBOT_URDF_ARM_H

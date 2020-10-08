@@ -5,15 +5,10 @@
 #include <thread>
 #include <chrono>
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <functional>
 #include <condition_variable>
-
-#include <ros/ros.h>
-#include <sensor_msgs/JointState.h>
-
-namespace as64_
-{
 
 namespace ur_
 {
@@ -149,8 +144,8 @@ void PRINT_CONFIRM_MSG(const std::string &msg, std::ostream &out = std::cout);
 void PRINT_WARNING_MSG(const std::string &msg, std::ostream &out = std::cerr);
 void PRINT_ERROR_MSG(const std::string &msg, std::ostream &out = std::cerr);
 
-} // namespace ur_
+void readFile(const std::string &filename, std::string &contents);
 
-} // namespace as64_
+} // namespace ur_
 
 #endif // UR_ROBOT_UNITS_H

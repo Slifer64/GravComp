@@ -9,9 +9,6 @@
 #include <sensor_msgs/JointState.h>
 #include <geometry_msgs/WrenchStamped.h>
 
-namespace as64_
-{
-
 namespace ur_
 {
 
@@ -28,6 +25,8 @@ Eigen::Vector4d rotm2quat(Eigen::Matrix3d rotm);
 arma::vec rotm2quat(const arma::mat &rotm);
 
 arma::mat quat2rotm(const arma::vec &quat);
+
+arma::vec quatLog(const arma::vec &quat, double zero_tol = 1e-16);
 
 std::vector<arma::vec> get5thOrder(double t, arma::vec p0, arma::vec pT, double totalTime);
 
@@ -70,6 +69,5 @@ private:
 
 }; // namespace ur_
 
-}; // namespace as64_
 
 #endif // UR_UTILS_H

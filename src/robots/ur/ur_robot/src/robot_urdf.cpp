@@ -9,9 +9,6 @@
 #include <ros/package.h>
 #include <kdl_parser/kdl_parser.hpp>
 
-namespace as64_
-{
-
 namespace ur_
 {
 
@@ -237,5 +234,3 @@ arma::mat RobotUrdf::getEEJacobian(const arma::vec &j_pos) const
 }
 
 }; // namespace ur_
-
-}; // namespace as64_

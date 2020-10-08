@@ -19,61 +19,39 @@
 #ifndef UR_REALTIME_COMMUNICATION_H_
 #define UR_REALTIME_COMMUNICATION_H_
 
-#include "robot_state_RT.h"
-#include "do_output.h"
-#include <vector>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/time.h>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <netdb.h>
-#include <iostream>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/types.h>
-
+#include <ur_modern_driver/robot_state_RT.h>
+#include <ur_modern_driver/do_output.h>
 #include <ur_modern_driver/utils.h>
 
 class UrRealtimeCommunication
 {
-private:
-	unsigned int safety_count_max_;
-	int sockfd_;
-	struct sockaddr_in serv_addr_;
-	struct hostent *server_;
-	std::string local_ip_;
-	bool keepalive_;
-	std::thread comThread_;
-	int flag_;
-	std::recursive_mutex command_string_lock_;
-	std::string command_;
-	unsigned int safety_count_;
-	void run();
-
-  as64_::ur_::Semaphore *msg_sem_ptr;
-
 public:
+
 	bool connected_;
 	RobotStateRT robot_state_;
 
-	UrRealtimeCommunication(as64_::ur_::Semaphore &msg_sem, std::string host, unsigned int safety_count_max = 12);
-  ~UrRealtimeCommunication();
+	UrRealtimeCommunication(ur_::Semaphore &msg_sem, std::string host);
+	~UrRealtimeCommunication();
 	bool start();
 	void halt();
-	void setSpeed(double q0, double q1, double q2, double q3, double q4, double q5, double acc = 100.);
+
 	void addCommandToQueue(std::string inp);
-	void setSafetyCountMax(uint inp);
 	std::string getLocalIp();
 
+private:
+	int sockfd_;
+	bool keepalive_;
+	std::thread comThread_;
+
+  ur_::Semaphore *msg_sem_ptr;
+
+	std::string local_ip_;
+	std::string host_;
+	int port_;
+
+	void init();
+	void run();
 };
+
 
 #endif /* UR_REALTIME_COMMUNICATION_H_ */

@@ -2,9 +2,6 @@
 #include <cmath>
 #include <vector>
 
-namespace as64_
-{
-
 namespace ur_
 {
 
@@ -40,6 +37,20 @@ arma::mat quat2rotm(const arma::vec &quat)
           {    2*qx*qz - 2*qy*qw,      2*qy*qz + 2*qx*qw,  1 - 2*qx*qx - 2*qy*qy}};
 
   return rotm;
+}
+
+arma::vec quatLog(const arma::vec &quat, double zero_tol)
+{
+  arma::vec v = quat.subvec(1,3);
+  double u = quat(0);
+
+  arma::vec omega(3);
+  double v_norm = arma::norm(v);
+
+  if (v_norm > zero_tol) omega = 2*std::atan2(v_norm,u)*v/v_norm;
+  else omega = arma::vec().zeros(3);
+
+  return omega;
 }
 
 std::vector<arma::vec> get5thOrder(double t, const arma::vec p0, const arma::vec pT, double totalTime)
@@ -101,4 +112,3 @@ void print_warn_msg(const std::string &msg)
 
 }; // namespace ur_
 
-}; // namespace as64_

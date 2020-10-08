@@ -1,8 +1,5 @@
 #include <ur_robot/sim_robot.h>
 
-namespace as64_
-{
-
 namespace ur_
 {
 
@@ -154,7 +151,7 @@ void SimRobot::setTaskVelocity(const arma::vec &task_vel)
   setJointsPositionHelper(j_pos);
 }
 
-void SimRobot::setTaskPose(const arma::mat &task_pose)
+void SimRobot::setTaskPose(const arma::vec &task_pose)
 {
   throw std::runtime_error("[ERROR]: SimRobot::setTaskPose is not supported.");
 }
@@ -200,5 +197,3 @@ void SimRobot::initJointsPosition(const arma::vec j_pos0)
 }
 
 }; // namespace ur_
-
-}; // namespace as64_

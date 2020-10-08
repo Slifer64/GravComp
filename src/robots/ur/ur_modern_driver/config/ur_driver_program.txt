@@ -1,0 +1,176 @@
+def driverProg():
+
+	global MULT_ = 1000000
+
+	global ctrl_cycle = 0.002
+
+	global servo_gain = 1000
+
+	global servo_lookahead_time = 0.02
+
+	global keepalive = 1
+
+	ip_addr = "127.0.0.1"
+	reverse_port_ = 8080
+	sock_fd_ = "socket_1"
+	sock_read_timeout = 2 # seconds
+
+	# ====== define the states  ======
+	global NO_CMD_RECEIVED = 0
+
+	global JOINT_POS_CTRL = 1
+	global JOINT_VEL_CTRL = 2
+	global CART_POS_CTRL = 3
+	global CART_VEL_CTRL = 4
+
+	global FREEDRIVE = 5
+
+	global BIAS_FT_SENSOR = 6
+	global TERMINATE = 7
+
+	# ========  Initialize  =========
+
+	global cmd_state = 0
+	global cmd_arg1 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+	global cmd_arg2 = 0.0
+	global cmd_arg3 = 0.0
+
+	# ========  Function: Set commanded values  ==========
+
+	def setState(state):
+		if (state >= JOINT_POS_CTRL) and (state <= FREEDRIVE):
+			enter_critical
+			cmd_state = state
+			exit_critical
+		end
+	end
+
+	def setCmd(arg1, arg2, arg3):
+		enter_critical
+		cmd_arg1 = arg1
+		cmd_arg2 = arg2
+		cmd_arg3 = arg3
+		exit_critical
+	end
+
+	# ========  Thread: Run control  ==========
+
+	thread servoThread():
+
+		freedrive_on = False
+
+		while (True):
+
+			state = NO_CMD_RECEIVED
+
+			enter_critical
+			state = cmd_state
+			arg1 = cmd_arg1
+			arg2 = cmd_arg2
+			arg3 = cmd_arg3
+			exit_critical
+
+			if (freedrive_on) and (state != FREEDRIVE):
+				end_freedrive_mode()
+				freedrive_on = False
+			end
+
+			if (state == JOINT_POS_CTRL):
+
+				servoj(arg1, arg3, arg2, ctrl_cycle, servo_lookahead_time, servo_gain)
+
+			elif (state == JOINT_VEL_CTRL):
+
+				speedj(arg1, arg3, ctrl_cycle)
+
+			elif (state == CART_POS_CTRL):
+
+				q = get_inverse_kin( p[arg1[0], arg1[1], arg1[2], arg1[3], arg1[4], arg1[5]])
+				servoj(q, arg3, arg2, ctrl_cycle, servo_lookahead_time, servo_gain)
+
+			elif (state == CART_VEL_CTRL):
+
+				speedl(arg1, arg3, ctrl_cycle)
+
+			elif (state == FREEDRIVE) and (freedrive_on == False):
+
+				freedrive_on = True
+				freedrive_mode()
+
+			elif (state == TERMINATE):
+
+				keepalive = 0
+
+			else:
+
+				sync()
+
+			end
+
+		end
+	end
+
+	# ==========================
+	# ========  Main  ==========
+	# ==========================
+
+	textmsg("Openning socket...")
+
+	# ========  Open socket  ==========
+	if ( socket_open(ip_addr, reverse_port_, sock_fd_) == False ):
+		textmsg("Failed to establish connection at ", str_cat(str_cat(ip_addr,":"), to_str(reverse_port_)))
+		halt
+	else:
+		textmsg("Socket opened!")
+	end
+
+	# ========  Launch command thread  ==========
+	textmsg("Launching ctrl thread!")
+	thread_servo = run servoThread()
+	textmsg("Ctrl thread started!")
+
+	# ========  Read from socket loop  ==========
+	while keepalive > 0:
+
+		params_ = socket_read_binary_integer(30, sock_fd_, sock_read_timeout)
+		#params_ = socket_read_ascii_float(9, sock_fd_, sock_read_timeout)
+		if (params_[0] > 0):
+
+			state = params_[1]
+
+			if (state > 0) and ( state < 5):
+
+				cmd_state = state
+
+				arg1 = [params_[2] / MULT_, params_[3] / MULT_, params_[4] / MULT_, params_[5] / MULT_, params_[6] / MULT_, params_[7] / MULT_]
+				arg2 = params_[8] / MULT_
+				arg3 = params_[9] / MULT_
+
+				#recv_msg = str_cat("inputs:", to_str(params_[0]))
+				#recv_msg = str_cat(recv_msg, ", state: ")
+				#recv_msg = str_cat(recv_msg, to_str(state))
+				#recv_msg = str_cat(recv_msg, ", arg1:")
+				#recv_msg = str_cat(recv_msg, to_str(arg1))
+				#textmsg(recv_msg)
+
+				setCmd(arg1, arg2, arg3)
+
+			elif (state == BIAS_FT_SENSOR):
+
+				zero_ftsensor()
+
+			end
+
+			setState(state)
+
+		end
+
+	end
+
+	# ===============================
+
+	sleep(.1)
+	socket_close(sock_fd_)
+	kill thread_servo
+
+end

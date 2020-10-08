@@ -33,31 +33,119 @@
 
 #include <armadillo>
 
-#include "ur_realtime_communication.h"
-#include "ur_communication.h"
-#include "do_output.h"
+#include <ur_modern_driver/ur_realtime_communication.h>
+#include <ur_modern_driver/ur_communication.h>
+#include <ur_modern_driver/do_output.h>
+#include <ur_modern_driver/socket_com.h>
 
 #include <ur_modern_driver/utils.h>
 
 class UrDriver
 {
+
+enum State
+{
+  JOINT_POS_CTRL = 1,
+	JOINT_VEL_CTRL = 2,
+	CART_POS_CTRL = 3,
+	CART_VEL_CTRL = 4,
+  FREEDRIVE = 5,
+	BIAS_FT_SENSOR = 6,
+	TERMINATE = 7,
+};
+
+public:
+
+  UrDriver(std::string host, unsigned int reverse_port = 50001, double servoj_time = 0.008, double max_time_step = 0.08,
+       double min_payload = 0., double max_payload = 1., double servoj_lookahead_time=0.03, double servoj_gain=300.);
+  ~UrDriver();
+	bool start();
+	void halt();
+
+  bool isEmergencyStopped() const { return sec_interface_->robot_state_.isProtectiveStopped(); }
+  bool isRobotConnected() const { return sec_interface_->robot_state_.isRobotConnected(); }
+  bool isProgramRunning() const { return sec_interface_->robot_state_.isProgramRunning(); }
+  bool isProtectiveStopped() const { return sec_interface_->robot_state_.isEmergencyStopped(); }
+
+  double getControllerTime() const { return t; }
+  std::vector<double> getJointPos() const { return joint_pos; }
+  std::vector<double> getJointVel() const { return joint_vel; }
+  std::vector<double> getEffort() const { return effort; }
+  std::vector<double> getTcpWrench() const { return tcp_wrench; }
+  std::vector<double> getTcpPos() const { return tcp_pos; }
+  std::vector<double> getTcpQuat() const { return tcp_quat; }
+  std::vector<double> getTcpVel() const { return tcp_vel; }
+
+  std::vector<double> getJointTargetVel() const { return joint_target_vel; }
+
+	UrRealtimeCommunication *rt_interface_;
+	UrCommunication* sec_interface_;
+
+  ur_::Semaphore update_sem;
+
+	void setToolVoltage(unsigned int v);
+	void setFlag(unsigned int n, bool b);
+	void setDigitalOut(unsigned int n, bool b);
+	void setAnalogOut(unsigned int n, double f);
+	bool setPayload(double m);
+
+	void setMinPayload(double m);
+	void setMaxPayload(double m);
+	void setServojTime(double t);
+	void setServojLookahead(double t);
+	void setServojGain(double g);
+
+  void readRTMsg();
+  void readMbMsg();
+
+  void setUrScriptCmd(const std::string &cmd) { ur_script_cmd.set(cmd); }
+
+  double getServojTime() const { return servoj_time_; }
+
+  void startReverseCom();
+  void stopReverseCom();
+
+  void setJointsPosition(const arma::vec &j_pos)
+  { writeCommand(JOINT_POS_CTRL, j_pos, 0, 0); }
+
+  void setJointsVelocity(const arma::vec &j_vel, double a)
+  { writeCommand(JOINT_VEL_CTRL, j_vel, 0, a); }
+
+  // pose: [pos; k*theta]
+  void setTaskPose(const arma::vec &pose)
+  { writeCommand(CART_POS_CTRL, pose, 0, 0); }
+
+  void setTaskVelocity(const arma::vec &task_vel, double a)
+  { writeCommand(CART_VEL_CTRL, task_vel, 0, a); }
+
+  void freedrive_mode();
+
+  void biasFtSensor();
+
 private:
-	double maximum_time_step_;
-	double minimum_payload_;
-	double maximum_payload_;
-	std::vector<std::string> joint_names_;
-	std::string ip_addr_;
-	const int MULT_JOINTSTATE_ = 1000000;
-	const int MULT_TIME_ = 1000000;
-	const unsigned int REVERSE_PORT_;
-	int incoming_sockfd_;
-	int new_sockfd_;
-	bool reverse_connected_;
-	double servoj_time_;
-	bool executing_traj_;
-	double firmware_version_;
-	double servoj_lookahead_time_;
-	double servoj_gain_;
+
+  char *writeDouble(char *buf, double val);
+
+  char *writeInt(char *buf, int val);
+
+  void writeCommand(int state, const arma::vec &cmd_, double vel, double accel);
+
+  double maximum_time_step_;
+  double minimum_payload_;
+  double maximum_payload_;
+  std::vector<std::string> joint_names_;
+  std::string ip_addr_;
+  const int MULT_JOINTSTATE_ = 1000000;
+  const int MULT_TIME_ = 1000000;
+  const unsigned int REVERSE_PORT_;
+  int incoming_sockfd_;
+  int new_sockfd_;
+  bool reverse_connected_;
+  double servoj_time_;
+  bool executing_traj_;
+  double firmware_version_;
+  double servoj_lookahead_time_;
+  double servoj_gain_;
 
   ur_::Semaphore rt_msg_sem;
   ur_::Semaphore msg_sem;
@@ -82,91 +170,7 @@ private:
 
   std::vector<double> joint_target_vel;
 
-  as64_::ur_::MtxVar<std::string> ur_script_cmd;
-
-public:
-
-  ur_::Timer global_timer;
-
-  arma::vec joint_vel_cmd;
-	arma::vec joint_pos_cmd;
-
-  int n_data;
-  arma::rowvec time_data;
-	arma::mat joint_pos_data;
-  arma::mat joint_vel_data;
-  arma::mat joint_target_vel_data;
-  arma::mat joint_vel_cmd_data;
-	arma::mat joint_pos_cmd_data;
-
-  bool isEmergencyStopped() const { return sec_interface_->robot_state_.isProtectiveStopped(); }
-  bool isRobotConnected() const { return sec_interface_->robot_state_.isRobotConnected(); }
-  bool isProgramRunning() const { return sec_interface_->robot_state_.isProgramRunning(); }
-  bool isProtectiveStopped() const { return sec_interface_->robot_state_.isEmergencyStopped(); }
-
-
-  double getControllerTime() const { return t; }
-  std::vector<double> getJointPos() const { return joint_pos; }
-  std::vector<double> getJointVel() const { return joint_vel; }
-  std::vector<double> getEffort() const { return effort; }
-  std::vector<double> getTcpWrench() const { return tcp_wrench; }
-  std::vector<double> getTcpPos() const { return tcp_pos; }
-  std::vector<double> getTcpQuat() const { return tcp_quat; }
-  std::vector<double> getTcpVel() const { return tcp_vel; }
-
-  std::vector<double> getJointTargetVel() const { return joint_target_vel; }
-
-	UrRealtimeCommunication *rt_interface_;
-	UrCommunication* sec_interface_;
-
-  ur_::Semaphore update_sem;
-
-	UrDriver(std::string host, unsigned int reverse_port = 50001, double servoj_time = 0.008, unsigned int safety_count_max =
-					12, double max_time_step = 0.08, double min_payload = 0.,
-			double max_payload = 1., double servoj_lookahead_time=0.03, double servoj_gain=300.);
-  ~UrDriver();
-	bool start();
-	void halt();
-
-	void setSpeed(double q0, double q1, double q2, double q3, double q4,
-			double q5, double acc = 100.);
-
-	bool doTraj(std::vector<double> inp_timestamps,
-			std::vector<std::vector<double> > inp_positions,
-			std::vector<std::vector<double> > inp_velocities);
-	void servoj(std::vector<double> positions, int keepalive = 1);
-
-	void stopTraj();
-
-	bool uploadProg();
-	bool openServo();
-	void closeServo(std::vector<double> positions);
-
-	std::vector<double> interp_cubic(double t, double T,
-			std::vector<double> p0_pos, std::vector<double> p1_pos,
-			std::vector<double> p0_vel, std::vector<double> p1_vel);
-
-	std::vector<std::string> getJointNames();
-	void setJointNames(std::vector<std::string> jn);
-	void setToolVoltage(unsigned int v);
-	void setFlag(unsigned int n, bool b);
-	void setDigitalOut(unsigned int n, bool b);
-	void setAnalogOut(unsigned int n, double f);
-	bool setPayload(double m);
-
-	void setMinPayload(double m);
-	void setMaxPayload(double m);
-	void setServojTime(double t);
-	void setServojLookahead(double t);
-	void setServojGain(double g);
-
-  void readRTMsg();
-  void readMbMsg();
-
-  void setUrScriptCmd(const std::string &cmd) { ur_script_cmd.set(cmd); }
-
-  double getServojTime() const { return servoj_time_; }
-
+  ur_::MtxVar<std::string> ur_script_cmd;
 };
 
 #endif /* UR_DRIVER_H_ */

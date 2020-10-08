@@ -62,16 +62,16 @@ GravComp::GravComp()
   {
     tool_massCoM_file = ros::package::getPath("grav_comp") + "/" + tool_massCoM_file;
     robot->setToolEstimator(tool_massCoM_file);
-  }
+  } 
 
   // =======  Robot ee tf publisher  =======
   std::string base_link;
   if (!nh.getParam("base_link", base_link)) throw std::runtime_error(GravComp_fun_ + "Failed to load param \"base_link\"...");
-  ee_tf_pub.reset( new TfPosePublisher(std::bind(&rw_::Robot::getTaskPosition, robot.get()), std::bind(&rw_::Robot::getTaskOrientation, robot.get()), base_link,"robot-ee") );
+  ee_tf_pub.reset( new rviz_::TfPosePublisher([this](){ return arma::join_vert(robot->getTaskPosition(), robot->getTaskOrientation());} , base_link,"robot-ee") );
 
   std::string tool_link;
   if (!nh.getParam("tool_link", tool_link)) throw std::runtime_error(GravComp_fun_ + "Failed to load param \"tool_link\"...");
-  com_tf_pub.reset( new TfPosePublisher([this](){ return tool_estimator.getCoM(true); }, [](){ return arma::vec({1,0,0,0}); }, tool_link, "CoM") );
+  com_tf_pub.reset( new rviz_::TfPosePublisher([this](){ return arma::join_vert(tool_estimator.getCoM(true), arma::vec({1,0,0,0}));}, tool_link, "CoM") );
 
   // =======  register signal SIGINT and signal handler  =======
   signal(SIGINT, GravComp::closeGUI);

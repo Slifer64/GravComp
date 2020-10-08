@@ -33,6 +33,7 @@ find_package(catkin REQUIRED COMPONENTS
   io_lib
   math_lib
   robo_lib
+  rviz_lib
   robot_wrapper
   thread_lib
 )
@@ -78,6 +79,7 @@ target_link_libraries(${PROJECT_NAME}
   io_lib
   math_lib
   robo_lib
+  rviz_lib
   robot_wrapper
   thread_lib
   ${Qt_LIBRARIES}

@@ -3,9 +3,6 @@
 #include <string>
 #include <ros/package.h>
 
-namespace as64_
-{
-
 namespace ur_
 {
 
@@ -26,11 +23,11 @@ Robot::Robot(const std::string &robot_desc_param, const std::string &base_link, 
 void Robot::initRobot(const std::string &robot_ip, int reverse_port)
 {
   ros::NodeHandle nh("~");
-  if (!nh.getParam("servo_a",servo_a)) servo_a = 10;
-  if (!nh.getParam("servo_v",servo_v)) servo_v = 20;
-  if (!nh.getParam("servo_T",servo_T)) servo_T = 0.01;
-  if (!nh.getParam("servo_lookahead_time",servo_lookahead_time)) servo_lookahead_time = 0.02;
-  if (!nh.getParam("servo_gain",servo_gain)) servo_gain = 800;
+  if (!nh.getParam("servo_a",servo_a)) servo_a = 30;
+  if (!nh.getParam("servo_v",servo_v)) servo_v = 100;
+  if (!nh.getParam("servo_T",servo_T)) servo_T = 0.004;
+  if (!nh.getParam("servo_lookahead_time",servo_lookahead_time)) servo_lookahead_time = 0.008;
+  if (!nh.getParam("servo_gain",servo_gain)) servo_gain = 2000;
 
   this->robot_ip = robot_ip;
   this->reverse_port = reverse_port;
@@ -68,12 +65,45 @@ void Robot::update()
 
 void Robot::setFreedriveMode()
 {
-  if (this->getMode() != ur_::Mode::PROTECTIVE_STOP) command_mode("freedrive_mode()\n");
+  if (this->getMode() != ur_::Mode::PROTECTIVE_STOP)
+    ur_driver->freedrive_mode();
+    //command_mode("freedrive_mode()\n");
 }
 
 void Robot::setNormalMode()
 {
-  if (this->getMode() != ur_::Mode::PROTECTIVE_STOP) command_mode("end_freedrive_mode()\n");
+  if (this->getMode() != ur_::Mode::PROTECTIVE_STOP)
+    ur_driver->setJointsVelocity(arma::vec().zeros(getNumJoints()), 10);
+    //command_mode("end_freedrive_mode()\n");
+}
+
+void Robot::force_mode(const arma::vec &select, double damping, const arma::vec &frame, const arma::vec &wrench, const::arma::vec &limits)
+{
+  if (damping<0 || damping>1) throw std::runtime_error(UR_Robot_fun_ + "Invalid damping: " + std::to_string(damping) + " (must be in range [0, 1]");
+
+  // arma::vec pos = frame.subvec(0,2);
+  // arma::vec quat = frame.subvec(3,6);
+  // arma::vec pose = arma::join_vert(pos, ur_::quatLog(quat));
+  arma::vec pose = frame;
+
+  std::string zero_ft_ = "zero_ftsensor()\n";
+
+  std::ostringstream force_mode_;
+  force_mode_ << "force_mode(p" << print_vector(pose) << ","
+                       << print_vector(select) << ","
+                       << print_vector(wrench) << ","
+                       << 2 << ","
+                       << print_vector(limits)
+                       << ")\n";
+
+  std::ostringstream damp_;
+  damp_ << "force_mode_set_damping(" << damping << ")\n";
+
+  std::string cmd = "def command_mode():\n\n\t" + zero_ft_ + force_mode_.str() + damp_.str() + "\n\twhile (True):\n\t\tsync()\n\tend\nend\n";
+
+  // std::cerr << "\n" << cmd << "\n\n";
+
+  ur_driver->setUrScriptCmd(cmd);
 }
 
 void Robot::protectiveStop()
@@ -190,5 +220,3 @@ void Robot::powerdown()
 }
 
 }  // namespace ur_
-
-} // namespace as64_

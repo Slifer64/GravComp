@@ -26,9 +26,6 @@
 #include <ur_robot/robot_urdf.h>
 #include <ur_modern_driver/utils.h>
 
-namespace as64_
-{
-
 namespace ur_
 {
 
@@ -47,7 +44,7 @@ public:
   virtual void setJointsPosition(const arma::vec &j_pos) = 0;
   virtual void setJointsVelocity(const arma::vec &j_vel) = 0;
   virtual void setTaskVelocity(const arma::vec &task_vel) = 0;
-  virtual void setTaskPose(const arma::mat &task_pose) = 0;
+  virtual void setTaskPose(const arma::vec &task_pose) = 0;
 
   virtual arma::vec getJointsPosition() const = 0;
   virtual arma::vec getJointsVelocity() const = 0;
@@ -130,7 +127,5 @@ protected:
 };
 
 }; // namespace ur_
-
-}; // namespace as64_
 
 #endif // UR_ROBOT_ARM_H

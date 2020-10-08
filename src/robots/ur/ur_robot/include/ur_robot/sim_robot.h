@@ -3,9 +3,6 @@
 
 #include <ur_robot/robot_arm.h>
 
-namespace as64_
-{
-
 namespace ur_
 {
 
@@ -24,7 +21,7 @@ public:
   void setJointsPosition(const arma::vec &j_pos) override;
   void setJointsVelocity(const arma::vec &j_vel) override;
   void setTaskVelocity(const arma::vec &task_vel) override;
-  void setTaskPose(const arma::mat &task_pose) override;
+  void setTaskPose(const arma::vec &task_pose) override;
 
   arma::vec getJointsPosition() const override;
   arma::vec getJointsVelocity() const override;
@@ -50,7 +47,7 @@ private:
 
   void protectiveStop();
 
-  Timer timer;
+  ur_::Timer timer;
   unsigned long update_time;
 
   ros::Subscriber jState_sub; ///< joint state subscriber
@@ -58,7 +55,5 @@ private:
 };
 
 }; // namespace ur_
-
-}; // namespace as64_
 
 #endif // UR_SIM_ROBOT_H

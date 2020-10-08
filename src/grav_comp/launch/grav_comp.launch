@@ -3,8 +3,10 @@
 <launch>
 
   <arg name="ati_ip" default="192.168.1.1" />
+  <arg name="use_ati" default="false" />
 
   <arg name="robot_ip" default="10.0.0.1" />
+  <arg name="reverse_port" default="8080" />
 
   <arg name="publish_jstates_topic" default="/robot_joint_states"/>
 
@@ -28,8 +30,10 @@
     <param name="publish_jstates_topic" value="$(arg publish_jstates_topic)"/>
 
     <param name="robot_ip" type="string" value="$(arg robot_ip)" />
+    <param name="reverse_port" value="$(arg reverse_port)"/>
 
     <param name="ati_ip" value="$(arg ati_ip)"/>
+    <param name="use_ati" value="$(arg use_ati)"/>
 
     <rosparam>
       robot_type: "ur"
@@ -39,7 +43,6 @@
       pub_jstates_flag: true
 
       use_sim: false
-      use_ati: false
 
       ee_tool_rot: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 

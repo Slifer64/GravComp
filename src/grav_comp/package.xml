@@ -21,12 +21,15 @@
 
   <build_depend>geometry_msgs</build_depend>
   <run_depend>geometry_msgs</run_depend>
-  
+
   <build_depend>io_lib</build_depend>
   <run_depend>io_lib</run_depend>
 
   <build_depend>math_lib</build_depend>
   <run_depend>math_lib</run_depend>
+
+  <build_depend>rviz_lib</build_depend>
+  <run_depend>rviz_lib</run_depend>
 
   <build_depend>thread_lib</build_depend>
   <run_depend>thread_lib</run_depend>

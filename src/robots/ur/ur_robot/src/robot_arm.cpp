@@ -9,9 +9,6 @@
 #include <ros/package.h>
 #include <kdl_parser/kdl_parser.hpp>
 
-namespace as64_
-{
-
 namespace ur_
 {
 
@@ -235,8 +232,4 @@ void RobotArm::readWrenchFromTopic(const std::string &topic)
   setGetExternalWrenchFun(&WrenchReader::getWrench, wrench_reader.get());
 }
 
-
-
 }; // namespace ur_
-
-}; // namespace as64_

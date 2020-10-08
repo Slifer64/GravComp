@@ -1,8 +1,5 @@
 #include <ur_modern_driver/utils.h>
 
-namespace as64_
-{
-
 namespace ur_
 {
 
@@ -61,6 +58,16 @@ void PRINT_ERROR_MSG(const std::string &msg, std::ostream &out)
   std::cout << "\033[1m" << "\033[31m" << "[ERROR]: " << msg << "\033[0m";
 }
 
-} // namespace ur_
+void readFile(const std::string &filename, std::string &contents)
+{
+  std::ifstream in(filename, std::ios::in | std::ios::binary);
+  if (!in) throw std::ios_base::failure("Failed to open: \"" + filename + "\n");
 
-} // namespace as64_
+  in.seekg(0, std::ios::end);
+  contents.resize(in.tellg());
+  in.seekg(0, std::ios::beg);
+  in.read(&contents[0], contents.size());
+  in.close();
+}
+
+} // namespace ur_

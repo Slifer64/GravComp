@@ -18,6 +18,8 @@
 
 #include "ur_modern_driver/do_output.h"
 
+#undef ROS_BUILD
+
 void print_debug(std::string inp) {
 #ifdef ROS_BUILD
 	ROS_DEBUG("%s", inp.c_str());
