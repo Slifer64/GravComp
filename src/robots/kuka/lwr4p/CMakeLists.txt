@@ -37,8 +37,7 @@ SET(SRC_LIST
 
 include_directories(
   include
-  ${ARMADILLO_INCLUDE_DIR}
-  usr/include/eigen3
+  /usr/include/eigen3
   ${catkin_INCLUDE_DIRS}
   ${FastResearchInterfaceLibrary_INCLUDE_DIR}
 )

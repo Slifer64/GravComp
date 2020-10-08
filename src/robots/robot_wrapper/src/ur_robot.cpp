@@ -23,8 +23,8 @@ Ur_Robot::Ur_Robot(bool use_sim)
 
   if (!nh.getParam("reverse_port",reverse_port))
   {
-    reverse_port = 5001;
-    PRINT_WARNING_MSG(std::string(Ur_Robot_fun_ + "Failed to read parameter \"reverse_port\".\n") + "Setting default: reverse_port = 5001\n");
+    reverse_port = 50001;
+    PRINT_WARNING_MSG(std::string(Ur_Robot_fun_ + "Failed to read parameter \"reverse_port\".\n") + "Setting default: reverse_port = 50001\n");
   }
 
   std::vector<double> temp;
