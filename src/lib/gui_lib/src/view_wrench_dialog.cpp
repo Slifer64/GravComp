@@ -1,10 +1,18 @@
-#include "view_wrench_dialog.h"
+#include <gui_lib/view_wrench_dialog.h>
+
+namespace as64_
+{
+
+namespace gui_
+{
 
 #define ViewWrenchDialog_fun_ std::string("[ViewWrenchDialog::") + __func__ + "]: "
 
 ViewWrenchDialog::ViewWrenchDialog(std::function<arma::vec()> readWrench, std::function<arma::mat()> getRelRot, QWidget *parent): QDialog(parent)
 {
   run = false;
+
+  up_rate_ms_ = 100;
 
   this->read_wrench = readWrench;
   this->get_rel_rot = getRelRot;
@@ -132,23 +140,27 @@ arma::vec ViewWrenchDialog::getBaseWrench()
 
 void ViewWrenchDialog::updateDialogThread()
 {
-while (run)
-{
-  arma::vec wrench = get_wrench();
+  while (run)
+  {
+    arma::vec wrench = get_wrench();
 
-  emit fx_le->textChanged(QString::number(wrench(0),'f',2));
-  emit fy_le->textChanged(QString::number(wrench(1),'f',2));
-  emit fz_le->textChanged(QString::number(wrench(2),'f',2));
+    emit fx_le->textChanged(QString::number(wrench(0),'f',2));
+    emit fy_le->textChanged(QString::number(wrench(1),'f',2));
+    emit fz_le->textChanged(QString::number(wrench(2),'f',2));
 
-  emit tx_le->textChanged(QString::number(wrench(3),'f',2));
-  emit ty_le->textChanged(QString::number(wrench(4),'f',2));
-  emit tz_le->textChanged(QString::number(wrench(5),'f',2));
+    emit tx_le->textChanged(QString::number(wrench(3),'f',2));
+    emit ty_le->textChanged(QString::number(wrench(4),'f',2));
+    emit tz_le->textChanged(QString::number(wrench(5),'f',2));
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
-}
+    std::this_thread::sleep_for(std::chrono::milliseconds(up_rate_ms_));
+  }
 }
 
 void ViewWrenchDialog::closeEvent(QCloseEvent *event)
 {
   stop();
 }
+
+} // namespace gui_
+
+} // namespace as64_

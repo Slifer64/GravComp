@@ -1,5 +1,5 @@
-#ifndef VIEW_WRENCH_DIALOG_H
-#define VIEW_WRENCH_DIALOG_H
+#ifndef GUI_LIB_VIEW_WRENCH_DIALOG_H
+#define GUI_LIB_VIEW_WRENCH_DIALOG_H
 
 #include <QDialog>
 #include <QLabel>
@@ -14,7 +14,13 @@
 #include <armadillo>
 #include <thread>
 
-#include "utils.h"
+#include <gui_lib/utils.h>
+
+namespace as64_
+{
+
+namespace gui_
+{
 
 class ViewWrenchDialog : public QDialog
 {
@@ -23,6 +29,10 @@ class ViewWrenchDialog : public QDialog
 public:
   ViewWrenchDialog(std::function<arma::vec()> readWrench, std::function<arma::mat()> getRelRot, QWidget *parent = 0);
   ~ViewWrenchDialog();
+
+  void setTitle(const std::string &title_) { this->setWindowTitle(title_.c_str()); }
+
+  void setUpdateRate(unsigned up_rate_ms) { up_rate_ms_ = up_rate_ms; }
 
 public slots:
   void launch();
@@ -41,6 +51,8 @@ private:
 
   QComboBox *ref_frame_cmbx;
 
+  unsigned up_rate_ms_;
+
   bool run;
   std::function<arma::vec()> read_wrench;
   std::function<arma::mat()> get_rel_rot;
@@ -56,4 +68,8 @@ private:
   void closeEvent(QCloseEvent *event) override;
 };
 
-#endif // VIEW_WRENCH_DIALOG_H
+} // namespace gui_
+
+} // namespace as64_
+
+#endif // GUI_LIB_VIEW_WRENCH_DIALOG_H

@@ -20,12 +20,16 @@
 
 #include <map>
 
-#include "view_pose_dialog.h"
-#include "view_jpos_dialog.h"
-#include "view_wrench_dialog.h"
 #include "set_poses_dialog.h"
 #include <grav_comp/utils.h>
+
 #include <robot_wrapper/robot.h>
+
+#include <gui_lib/view_wrench_dialog.h>
+#include <gui_lib/view_pose_dialog.h>
+#include <gui_lib/view_jpos_dialog.h>
+
+using namespace as64_;
 
 class GravComp;
 
@@ -122,10 +126,10 @@ private:
 
   GravComp *grav_comp; ///< Pointer to object with the execution functionalities.
   const rw_::Robot *robot; ///< Pointer to object with the robot functionality.
-  ViewPoseDialog *view_pose_dialog; ///< Pointer to QDialog object for displaying the robot tool pose.
-  ViewJPosDialog *view_jpos_dialog; ///< Pointer to QDialog object for displaying the robot's joint angles.
-  ViewWrenchDialog *view_wrench_dialog; ///< Pointer to QDialog object for displaying the robot's tool wrench.
-  ViewWrenchDialog *view_compWrench_dialog;
+  gui_::ViewPoseDialog *view_pose_dialog; ///< Pointer to QDialog object for displaying the robot tool pose.
+  gui_::ViewJPosDialog *view_jpos_dialog; ///< Pointer to QDialog object for displaying the robot's joint angles.
+  gui_::ViewWrenchDialog *view_wrench_dialog; ///< Pointer to QDialog object for displaying the robot's tool wrench.
+  gui_::ViewWrenchDialog *view_compWrench_dialog;
   SetPosesDialog *set_poses_dialog; ///< Pointer to QDialog object for setting predefined poses for recording wrench-orient.
 
   // ======  menus  ========

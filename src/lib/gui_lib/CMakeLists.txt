@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.0.0)
 
-project(grav_comp)
+project(gui_lib)
 
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 set(CMAKE_CXX_STANDARD 11) # Tell CMake to compile with C++11
 set(CMAKE_AUTOMOC ON) # Tell CMake to run moc when needed.
@@ -25,24 +25,11 @@ SET(Qt_LIBRARIES
   Qt5::PrintSupport
 )
 
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  roslib
-  geometry_msgs
-  tf
-  io_lib
-  math_lib
-  robo_lib
-  rviz_lib
-  gui_lib
-  robot_wrapper
-  thread_lib
-)
+
+find_package(catkin REQUIRED)
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp geometry_msgs tf
-  DEPENDS
 )
 
 include_directories(
@@ -51,18 +38,15 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-set(SRC_LIST
-  include/${PROJECT_NAME}/gui/mainwindow.cpp
-  include/${PROJECT_NAME}/gui/utils.cpp
-  include/${PROJECT_NAME}/gui/set_poses_dialog.cpp
+add_library(${PROJECT_NAME}
+  include/${PROJECT_NAME}/view_wrench_dialog.h
+  src/view_wrench_dialog.cpp
 
-  src/source_list/grav_comp.cpp
-  src/main.cpp
-)
+  include/${PROJECT_NAME}/view_jpos_dialog.h
+  src/view_jpos_dialog.cpp
 
-add_executable(${PROJECT_NAME}
-  ${SRC_LIST}
-  resources/resource.qrc
+  include/${PROJECT_NAME}/view_pose_dialog.h
+  src/view_pose_dialog.cpp
 )
 
 add_dependencies(${PROJECT_NAME}
@@ -72,14 +56,6 @@ add_dependencies(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
-  armadillo
-  io_lib
-  math_lib
-  robo_lib
-  rviz_lib
-  gui_lib
-  robot_wrapper
-  thread_lib
   ${Qt_LIBRARIES}
-  pthread
+  armadillo
 )

@@ -31,6 +31,9 @@
   <build_depend>rviz_lib</build_depend>
   <run_depend>rviz_lib</run_depend>
 
+  <build_depend>gui_lib</build_depend>
+  <run_depend>gui_lib</run_depend>
+
   <build_depend>thread_lib</build_depend>
   <run_depend>thread_lib</run_depend>
 

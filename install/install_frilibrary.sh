@@ -11,7 +11,6 @@ COLOR_CYAN="\033[1;36m"
 COLOR_WHITE="\033[1;37m"
 COLOR_RESET="\033[0m"
 
-
 echo -e $COLOR_CYAN"*******************************"$COLOR_RESET
 echo -e $COLOR_CYAN"******   FRI library    *******"$COLOR_RESET
 echo -e $COLOR_CYAN"*******************************"$COLOR_RESET
@@ -19,7 +18,7 @@ echo -e $COLOR_CYAN"*******************************"$COLOR_RESET
 echo -e $COLOR_BLUE"Installing FRILibarry Dependencies: gcc-multilib, g++-multilib..."$COLOR_RESET
 # Install dependencies
 sudo apt-get update > /dev/null && \
-sudo apt-get install -y gcc-multilib g++-multilib > /dev/null && \
+sudo apt-get install -y gcc-multilib g++-multilib > /dev/null
 
 # cd $MAIN_WS_DIR/src/autharl_fri && \
 fri_folder_path=$(find $MAIN_WS_DIR/src/ -name 'lwr4p' -print | head -n 1) && \

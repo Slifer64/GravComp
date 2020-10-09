@@ -121,7 +121,6 @@ void MainWindow::updateGUIonModeChanged()
       freedrive_btn->setStyleSheet("QPushButton { color: black; background-color: rgb(225, 225, 225) }");
       idle_btn->setStyleSheet("QPushButton { color: rgb(0, 0, 250); background-color: rgb(0, 255, 0) }");
       break;
-
   }
 }
 
@@ -282,13 +281,15 @@ void MainWindow::createWidgets()
   QFont font1("Ubuntu", 13, QFont::DemiBold);
   QFont font2("Ubuntu", 15, QFont::DemiBold);
 
-  view_wrench_dialog = new ViewWrenchDialog(std::bind(&rw_::Robot::getTaskWrench, robot), std::bind(&rw_::Robot::getTaskRotMat, robot), this);
-  view_wrench_dialog->setWindowTitle("Tool wrench");
-  view_compWrench_dialog = new ViewWrenchDialog(std::bind(&rw_::Robot::getCompTaskWrench, robot), std::bind(&rw_::Robot::getTaskRotMat, robot), this);
-  view_compWrench_dialog->setWindowTitle("Compensated Tool wrench");
-  view_pose_dialog = new ViewPoseDialog(std::bind(&rw_::Robot::getTaskPosition, robot), std::bind(&rw_::Robot::getTaskOrientation, robot), this);
-  view_jpos_dialog = new ViewJPosDialog(robot->getJointPosLowLim(), robot->getJointPosUpperLim(), std::bind(&rw_::Robot::getJointsPosition, robot), this);
+  view_wrench_dialog = new gui_::ViewWrenchDialog(std::bind(&rw_::Robot::getTaskWrench, robot), std::bind(&rw_::Robot::getTaskRotMat, robot), this);
+  view_wrench_dialog->setTitle("Tool wrench");
+  view_compWrench_dialog = new gui_::ViewWrenchDialog(std::bind(&rw_::Robot::getCompTaskWrench, robot), std::bind(&rw_::Robot::getTaskRotMat, robot), this);
+  view_compWrench_dialog->setTitle("Compensated Tool wrench");
+  view_pose_dialog = new gui_::ViewPoseDialog( [this](){ return arma::join_vert(robot->getTaskPosition(), robot->getTaskOrientation());}, this);
+  view_pose_dialog->setTitle("Tool pose");
+  view_jpos_dialog = new gui_::ViewJPosDialog(robot->getJointPosLowLim(), robot->getJointPosUpperLim(), std::bind(&rw_::Robot::getJointsPosition, robot), this);
   view_jpos_dialog->setJointNames(robot->getJointNames());
+  view_jpos_dialog->setTitle("Robot joints position");
   set_poses_dialog = new SetPosesDialog(robot->getNumOfJoints(), this);
 
   mode_label = new QLabel;

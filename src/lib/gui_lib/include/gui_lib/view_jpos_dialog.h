@@ -1,5 +1,5 @@
-#ifndef VIEW_JOINT_POSITION_DIALOG_H
-#define VIEW_JOINT_POSITION_DIALOG_H
+#ifndef GUI_LIB_VIEW_JOINT_POSITION_DIALOG_H
+#define GUI_LIB_VIEW_JOINT_POSITION_DIALOG_H
 
 #include <QDialog>
 #include <QLabel>
@@ -18,6 +18,12 @@
 #include <thread>
 #include <chrono>
 
+namespace as64_
+{
+
+namespace gui_
+{
+
 class ViewJPosDialog : public QDialog
 {
   Q_OBJECT
@@ -26,7 +32,9 @@ public:
   ViewJPosDialog(const arma::vec &jlow_lim, const arma::vec &jup_lim, std::function<arma::vec()> readJointsPosition, QWidget *parent = 0);
   ~ViewJPosDialog();
 
+  void setTitle(const std::string &title_) { this->setWindowTitle(title_.c_str()); }
   void setJointNames(const std::vector<std::string> &joint_names);
+  void setUpdateRate(unsigned up_rate_ms) { up_rate_ms_ = up_rate_ms; }
 
 signals:
   void updateSliderPosition(int pos);
@@ -36,11 +44,13 @@ public slots:
   void stop();
 
 private slots:
-void changeUnits(const QString &units);
+  void changeUnits(const QString &units);
 
 private:
 
   bool run;
+
+  unsigned up_rate_ms_;
 
   int N_JOINTS;
   arma::vec jlow_lim;
@@ -76,4 +86,8 @@ private:
   constexpr static long double pi = 3.14159265359;
 };
 
-#endif // VIEW_JOINT_POSITION_DIALOG_H
+} // namespace gui_
+
+} // namespace as64_
+
+#endif // GUI_LIB_VIEW_JOINT_POSITION_DIALOG_H
