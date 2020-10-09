@@ -13,6 +13,8 @@
 #include <grav_comp/gui/mainwindow.h>
 #include <rviz_lib/tf_pose_publisher.h>
 
+#include <QThread>
+
 using namespace as64_;
 
 class GravComp
@@ -23,7 +25,6 @@ public:
   ~GravComp();
 
   void launch();
-protected:
 
   friend MainWindow;
 
@@ -62,15 +63,15 @@ protected:
   std::string robot_type;
   std::shared_ptr<rw_::Robot> robot;
 
-  // GUI
-  MainWindow *gui;
-
-  thr_::Semaphore start_sem;
-  thr_::Semaphore finish_sem;
-
   std::shared_ptr<rviz_::TfPosePublisher> ee_tf_pub;
   std::shared_ptr<rviz_::TfPosePublisher> com_tf_pub;
 
+  // GUI
+  MainWindow *gui;
+  bool gui_finished;
+
+  QMainWindow *createMainWindow();
+  
   static void closeGUI(int);
   static MainWindow *gui_; // used to emit closeGUI signal
 

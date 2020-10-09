@@ -1,7 +1,13 @@
 #ifndef GUI_LIB_UTILS_H
 #define GUI_LIB_UTILS_H
 
+#include <memory>
+#include <functional>
+
 #include <QLineEdit>
+#include <QApplication>
+#include <QMainWindow>
+#include <QThread>
 
 namespace as64_
 {
@@ -19,6 +25,8 @@ public:
 private:
     QSize size_hint;
 };
+
+void launchGui(std::function<QMainWindow *()> create_mainwin_fun_, bool *gui_finished, int thr_priority=QThread::LowestPriority);
 
 } // namespace gui_
 

@@ -62,7 +62,7 @@ GravComp::GravComp()
   {
     tool_massCoM_file = ros::package::getPath("grav_comp") + "/" + tool_massCoM_file;
     robot->setToolEstimator(tool_massCoM_file);
-  } 
+  }
 
   // =======  Robot ee tf publisher  =======
   std::string base_link;
@@ -82,7 +82,7 @@ GravComp::~GravComp()
   if (robot->isOk()) robot->stop();
 
   std::cerr << GravComp_fun_ + "Waiting to be notified...\n";
-  finish_sem.wait(); // wait for gui to finish
+  while (!gui_finished); //finish_sem.wait(); // wait for gui to finish
   std::cerr << GravComp_fun_ + "Got notification!\n";
 }
 
@@ -93,20 +93,11 @@ void GravComp::closeGUI(int)
   emit GravComp::gui_->closeSignal();
 }
 
-void GravComp::launch()
+QMainWindow *GravComp::createMainWindow()
 {
-  int argc = 0;
-  char **argv = 0;
-  QApplication app(argc, argv);
-  QThread::currentThread()->setPriority(QThread::LowestPriority);
-  this->gui = new MainWindow(this->robot.get(), this);
-  GravComp::gui_ = this->gui;
-  this->gui->show();
-  this->start_sem.notify();
-  app.exec();
-  std::cerr << GravComp_fun_ + "Notifying!\n";
-  this->finish_sem.notify();
-  delete (this->gui); // must be destructed in this thread!
+  gui = new MainWindow(robot.get(), this);
+  GravComp::gui_ = gui;
+  return gui;
 }
 
 void GravComp::setMode(rw_::Mode mode)

@@ -39,6 +39,10 @@ include_directories(
 )
 
 add_library(${PROJECT_NAME}
+
+  include/${PROJECT_NAME}/utils.h
+  src/utils.cpp
+
   include/${PROJECT_NAME}/view_wrench_dialog.h
   src/view_wrench_dialog.cpp
 
