@@ -10,6 +10,7 @@
 
 #include <urdf/model.h>
 #include <kdl/chain.hpp>
+#include <kdl_parser/kdl_parser.hpp>
 #include <kdl/chainfksolverpos_recursive.hpp>
 #include <kdl/chainjnttojacsolver.hpp>
 #include <kdl/chainiksolvervel_pinv.hpp>
@@ -43,6 +44,8 @@ public:
   std::vector<double> joint_vel_lim;
   std::vector<double> effort_lim;
 
+  const KDL::Tree getKdlTree() const { return tree; }
+
 private:
 
   void init();
@@ -54,7 +57,9 @@ private:
   std::shared_ptr<KDL::ChainIkSolverVel_pinv> ik_vel_solver;//Inverse velocity solver
   std::shared_ptr<KDL::ChainIkSolverPos_NR> ik_solver;
   std::shared_ptr<KDL::ChainJntToJacSolver> jac_solver;
+
   KDL::Chain chain;
+  KDL::Tree tree;
 
   std::string base_link_name;
   std::string tool_link_name;

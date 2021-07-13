@@ -56,6 +56,7 @@ public:
   virtual arma::mat getJacobian() const = 0;
   virtual arma::mat getEEJacobian() const = 0;
   virtual arma::vec getTcpWrench() const = 0;
+  virtual arma::vec getJointsTorque() const = 0;
 
   double getCtrlCycle() const;
   int getNumJoints() const;

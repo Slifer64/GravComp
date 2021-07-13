@@ -13,8 +13,8 @@ find_package(orocos_kdl)
 find_package(catkin REQUIRED COMPONENTS
   orocos_kdl
   kdl_parser
-  roscpp
-  roslib
+  #roscpp
+  #roslib
   geometry_msgs
   sensor_msgs
   # ur_kinematics
@@ -26,7 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
 ###################################
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp ur_modern_driver
+  CATKIN_DEPENDS ur_modern_driver #roscpp
   DEPENDS orocos_kdl
 )
 

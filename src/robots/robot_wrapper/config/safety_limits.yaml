@@ -1,0 +1,7 @@
+tool_vel_lim: 0.5  # m/s
+tool_rot_vel_lim: 2.2  # rad/s
+
+joint_vel_lim: 2.2  # rad/s
+
+# force_limit:
+# wrench_limit:

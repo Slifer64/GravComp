@@ -16,9 +16,6 @@ public:
 
   void commandThread() override;
 
-  std::string getErrMsg() const override
-  { return err_msg; }
-
   arma::vec getTaskPosition() const override
   { return robot->getTaskPosition(); }
 
@@ -28,15 +25,6 @@ public:
   arma::vec getTaskOrientation() const override
   { return rotm2quat(this->getTaskRotMat()); }
 
-  arma::vec getTaskForce() const override
-  { return getTaskWrench().subvec(0,2); }
-
-  arma::vec getTaskTorque() const override
-  { return getTaskWrench().subvec(3,5); }
-
-  arma::vec getTaskWrench() const override
-  { return applyFextDeadZone(get_wrench_fun()); }
-
   arma::vec getJointsPosition() const override
   { return robot->getJointsPosition(); }
 
@@ -45,12 +33,6 @@ public:
 
   void update() override
   { KRC_tick.wait(); }
-
-  void setEmergencyStop(bool set) override
-  {
-    emergency_stop = set;
-    if (set) setMode(rw_::IDLE);
-  }
 
   arma::vec getJointPosLowLim() const override
   { return arma::vec(robot->robot_urdf->getJointsPosLowLim())*180/3.14159; }
@@ -63,7 +45,7 @@ public:
   void setMode(const Mode &mode) override;
 
   bool isOk() const override
-  { return robot->isOk(); }
+  { return robot->isOk() && !external_stop_; }
 
   void setJointsPosition(const arma::vec &jpos) override { jpos_cmd.set(jpos); }
   void setJointsTorque(const arma::vec &jtorq) override { jtorque_cmd.set(jtorq); }
@@ -73,9 +55,12 @@ public:
   std::vector<std::string> getJointNames() const
   { return robot->robot_urdf->getJointsName(); }
 
+  void biasRobotSensor() override
+  { robot->biasFtSensor(); }
+
 private:
 
-  void addJointState(sensor_msgs::JointState &joint_state_msg) override { robot->addJointState(joint_state_msg); }
+  void setRobotIdle() override { robot->setNormalMode(); }
 
   arma::vec getTaskWrenchFromRobot() const override
   { return robot->getTcpWrench(); }
@@ -83,9 +68,9 @@ private:
   std::shared_ptr<ur_::Robot> robot;
   // void *robot;
 
-  std::string err_msg;
-  thr_::MtxVar<Mode> cmd_mode;
   thr_::Semaphore mode_change;
+
+  bool run_;
 };
 
 } // namespace rw_

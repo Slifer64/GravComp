@@ -1,35 +1,33 @@
 #include <ur_robot/robot.h>
 #include <iostream>
 #include <string>
-#include <ros/package.h>
+// #include <ros/package.h>
 
 namespace ur_
 {
 
 Robot::Robot(urdf::Model &urdf_model, const std::string &base_link, const std::string &tool_link,
-             const std::string &robot_ip, int reverse_port):
+             const std::string &host_ip, const std::string &robot_ip, int reverse_port):
     RobotArm(urdf_model, base_link, tool_link)
 {
-  initRobot(robot_ip, reverse_port);
+  initRobot(host_ip, robot_ip, reverse_port);
 }
 
 Robot::Robot(const std::string &robot_desc_param, const std::string &base_link, const std::string &tool_link,
-             const std::string &robot_ip, int reverse_port):
+             const std::string &host_ip, const std::string &robot_ip, int reverse_port):
     RobotArm(robot_desc_param, base_link, tool_link)
 {
-  initRobot(robot_ip, reverse_port);
+  initRobot(host_ip, robot_ip, reverse_port);
 }
 
-void Robot::initRobot(const std::string &robot_ip, int reverse_port)
+void Robot::initRobot(const std::string &host_ip, const std::string &robot_ip, int reverse_port)
 {
-  ros::NodeHandle nh("~");
-  if (!nh.getParam("servo_a",servo_a)) servo_a = 30;
-  if (!nh.getParam("servo_v",servo_v)) servo_v = 100;
-  if (!nh.getParam("servo_T",servo_T)) servo_T = 0.004;
-  if (!nh.getParam("servo_lookahead_time",servo_lookahead_time)) servo_lookahead_time = 0.008;
-  if (!nh.getParam("servo_gain",servo_gain)) servo_gain = 2000;
+  if (host_ip.compare("localhost")==0) host_ip_ = "127.0.0.1";
+  else this->host_ip_ = host_ip;
 
-  this->robot_ip = robot_ip;
+  if (robot_ip.compare("localhost")==0) robot_ip_ = "127.0.0.1";
+  this->robot_ip_ = robot_ip;
+
   this->reverse_port = reverse_port;
 
   runUrDriver();
@@ -37,9 +35,8 @@ void Robot::initRobot(const std::string &robot_ip, int reverse_port)
   mode = ur_::Mode::NORMAL;
 
   std::this_thread::sleep_for(std::chrono::milliseconds(2000)); // needed to let UR initialize
-  // ros::Duration(2.0).sleep(); // needed to let UR initialize
 
-  ctrl_cycle = ur_driver->getServojTime();
+  ctrl_cycle = 0.002;
 
   update();
 
@@ -73,7 +70,10 @@ void Robot::setFreedriveMode()
 void Robot::setNormalMode()
 {
   if (this->getMode() != ur_::Mode::PROTECTIVE_STOP)
-    ur_driver->setJointsVelocity(arma::vec().zeros(getNumJoints()), 10);
+  {
+    ur_driver->idle_mode();
+    //ur_driver->setJointsVelocity(arma::vec().zeros(getNumJoints()), 10);
+  }
     //command_mode("end_freedrive_mode()\n");
 }
 
@@ -127,7 +127,7 @@ void Robot::runUrDriver()
 
   ur_driver_thr = std::thread( [this, &start_ur_driver_sem]()
   {
-    this->ur_driver = new UrDriver(this->robot_ip, this->reverse_port, 0.002);
+    this->ur_driver = new UrDriver(this->host_ip_, this->robot_ip_, this->reverse_port);
     if (!this->ur_driver->start()) throw std::runtime_error("[ur_::Robot::runUrDriver]: Failed to start the UrDriver...\n");
     start_ur_driver_sem.notify();
     this->shutdown_sem.wait();
@@ -146,6 +146,12 @@ bool Robot::isOk() const
   if (ur_driver->isProtectiveStopped())
   {
     *(const_cast<std::string *>(&err_msg)) = "PROTECTIVE STOP!\n";
+    return false;
+  }
+
+  if (ur_driver->isDisconnected())
+  {
+    *(const_cast<std::string *>(&err_msg)) = "DISCONNECTED!\n";
     return false;
   }
 

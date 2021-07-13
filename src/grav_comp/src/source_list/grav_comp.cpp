@@ -37,32 +37,32 @@ GravComp::GravComp()
   else throw std::runtime_error("Unsupported robot type \"" + robot_type + "\".");
 
   // check whether to publish joint states
-  bool pub_jstates_flag = false;
-  if (nh.getParam("pub_jstates_flag", pub_jstates_flag) && pub_jstates_flag)
-  {
-    std::string pub_jstates_topic;
-    if (!nh.getParam("publish_jstates_topic", pub_jstates_topic)) throw std::runtime_error(GravComp_fun_ + "Failed to load param \"pub_jstates_topic\"...");
-    robot->publishJointStates(pub_jstates_topic);
-  }
+  // bool pub_jstates_flag = false;
+  // if (nh.getParam("pub_jstates_flag", pub_jstates_flag) && pub_jstates_flag)
+  // {
+  //   std::string pub_jstates_topic;
+  //   if (!nh.getParam("publish_jstates_topic", pub_jstates_topic)) throw std::runtime_error(GravComp_fun_ + "Failed to load param \"pub_jstates_topic\"...");
+  //   robot->publishJointStates(pub_jstates_topic);
+  // }
 
   // =======  check whether to use ati-sensor  =======
-  bool use_ati_sensor = false;
-  if (nh.getParam("use_ati", use_ati_sensor) && use_ati_sensor)
-  {
-    robot->useAtiSensor();
-    bool set_wrench_bias = false;
-    if (!nh.getParam("set_wrench_bias", set_wrench_bias) && set_wrench_bias) robot->setWrenchBias();
-  }
+  // bool use_ati_sensor = false;
+  // if (nh.getParam("use_ati", use_ati_sensor) && use_ati_sensor)
+  // {
+  //   robot->useAtiSensor();
+  //   bool set_wrench_bias = false;
+  //   if (!nh.getParam("set_wrench_bias", set_wrench_bias) && set_wrench_bias) robot->setWrenchBias();
+  // }
 
   // =======  Tool compensation  =======
-  std::string tool_massCoM_file;
-  std::string tool_param_name = "tool_massCoM_file";
-  if (use_sim) tool_param_name = "dummy_tool_massCoM_file";
-  if (nh.getParam(tool_param_name.c_str(), tool_massCoM_file))
-  {
-    tool_massCoM_file = ros::package::getPath("grav_comp") + "/" + tool_massCoM_file;
-    robot->setToolEstimator(tool_massCoM_file);
-  }
+  // std::string tool_massCoM_file;
+  // std::string tool_param_name = "tool_massCoM_file";
+  // if (use_sim) tool_param_name = "dummy_tool_massCoM_file";
+  // if (nh.getParam(tool_param_name.c_str(), tool_massCoM_file))
+  // {
+  //   tool_massCoM_file = ros::package::getPath("grav_comp") + "/" + tool_massCoM_file;
+  //   robot->setToolEstimator(tool_massCoM_file);
+  // }
 
   // =======  Robot ee tf publisher  =======
   std::string base_link;

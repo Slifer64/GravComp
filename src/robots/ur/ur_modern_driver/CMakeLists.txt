@@ -9,6 +9,7 @@ project(ur_modern_driver)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   roslib
+  io_lib
 )
 
 ###################################
@@ -45,8 +46,10 @@ endif()
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
-include_directories(include
+include_directories(
+  include
   ${catkin_INCLUDE_DIRS}
+  /usr/include/eigen3
 )
 
 ## Declare a C++ executable
@@ -77,4 +80,5 @@ add_dependencies(ur_modern_driver
 target_link_libraries(ur_modern_driver
   armadillo
   ${catkin_LIBRARIES}
+  io_lib
 )

@@ -97,18 +97,17 @@ std::vector<arma::vec> get5thOrder(double t, const arma::vec p0, const arma::vec
 
 void print_err_msg(const std::string &msg)
 {
-  std::cerr << "\033[1m\033[31m" << "[lwr4p+ ERROR]: " << msg << "\033[0m";
+  std::cerr << "\033[1m\033[31m" << "[ur ERROR]: " << msg << "\033[0m";
 }
 
 void print_info_msg(const std::string &msg)
 {
-  std::cout << "\033[1m\033[34m" << "[lwr4p+ INFO]: " << msg << "\033[0m";
+  std::cout << "\033[1m\033[34m" << "[ur INFO]: " << msg << "\033[0m";
 }
 
 void print_warn_msg(const std::string &msg)
 {
-  std::cout << "\033[1m\033[33m" << "[lwr4p+ WARNING]: " << msg << "\033[0m";
+  std::cout << "\033[1m\033[33m" << "[ur WARNING]: " << msg << "\033[0m";
 }
 
 }; // namespace ur_
-

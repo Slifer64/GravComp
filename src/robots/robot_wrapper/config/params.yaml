@@ -1,0 +1,23 @@
+# =======  ROBOT PARAMS  =========
+
+pub_robot_state_flag: true
+pub_rate_ms: 33 # ms
+
+use_ati: false
+ati_ip: "192.168.1.1"
+Fext_dead_zone: [0; 0; 0; 0; 0; 0]
+
+set_wrench_bias: false
+
+tool_massCoM_file: "tool_params.yaml"
+
+ee_tool_rot: [1, 0, 0; 0, 1, 0; 0, 0, 1]
+ee_tool_trans: [0; 0; 0] # do not use ... yet
+
+use_svf: false
+sigma_min: 0.1
+shape_f: 19.9
+
+use_jlav: false
+jlav_gain: 10e-3
+jlim_safety_margin: 3 # rad

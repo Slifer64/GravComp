@@ -38,7 +38,12 @@ set(SRC_LIST
   src/robot.cpp
   src/lwr4p_robot.cpp
   src/ur_robot.cpp
+  src/utils/admittance_controller.cpp
+  src/utils/wrench_interface.cpp
+  src/utils/inv_kinematics_interface.cpp
+  src/utils/publish_state_interface.cpp
   src/utils/math_utils.cpp
+  src/utils/xml_parser.cpp
 )
 
 add_library(${PROJECT_NAME}

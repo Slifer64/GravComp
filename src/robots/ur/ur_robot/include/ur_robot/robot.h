@@ -45,9 +45,9 @@ class Robot : public RobotArm
 {
 public:
   Robot(urdf::Model &urdf_model, const std::string &base_link, const std::string &tool_link,
-       const std::string &robot_ip, int reverse_port);
+       const std::string &host_ip, const std::string &robot_ip, int reverse_port);
   Robot(const std::string &robot_desc_param, const std::string &base_link, const std::string &tool_link,
-        const std::string &robot_ip, int reverse_port);
+        const std::string &host_ip, const std::string &robot_ip, int reverse_port);
   ~Robot();
 
   bool isOk() const override;
@@ -95,8 +95,8 @@ public:
 
   arma::vec getTaskPosition() const override
   {
-    return ur_driver->getTcpPos();
-//    return robot_urdf->getTaskPosition(getJointsPosition());
+    //return ur_driver->getTcpPos();
+    return robot_urdf->getTaskPosition(getJointsPosition());
   }
 
   arma::mat getTaskRotm() const override
@@ -106,8 +106,8 @@ public:
 
   arma::vec getTaskQuat() const override
   {
-    return ur_driver->getTcpQuat();
-//    return robot_urdf->getTaskQuat(getJointsPosition());
+    //return ur_driver->getTcpQuat();
+    return robot_urdf->getTaskQuat(getJointsPosition());
   }
 
   arma::vec getTcpWrench() const override
@@ -117,69 +117,10 @@ public:
 
   arma::vec getJointsTorque() const
   {
-    int res;
-    int PORT = 8080;
-
-    int main_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (main_sock < 0) throw std::runtime_error(UR_Robot_fun_ + "Error on \"socket()\"...\n");
-
-    com_::setReuseAddr(main_sock, true);
-
-    struct sockaddr_in listen_addr;
-    memset((void *)&listen_addr, 0, sizeof(listen_addr)); // bzero((char *)&listen_addr, sizeof(listen_addr));
-    listen_addr.sin_family = AF_INET;
-    listen_addr.sin_port = htons(PORT);
-    // listen_addr.sin_addr.s_addr = INADDR_ANY;
-    inet_pton(AF_INET, "0.0.0.0", (void *)&listen_addr.sin_addr);
-    //inet_pton(AF_INET, robot_ip.c_str(), (void *)&listen_addr.sin_addr);
-    if ( bind(main_sock, (struct sockaddr *)&listen_addr, sizeof(sockaddr)) )
-      throw std::runtime_error(UR_Robot_fun_ + "Error on \"bind()\"...\n");
-
-    if ( listen(main_sock, 1) < 0 ) // listen(server_fid, SOMAXCONN)
-      throw std::runtime_error(UR_Robot_fun_ + "Error on \"listen()\"...\n");
-
-    std::thread([this]()
-    {
-      // wait for accept maybe...
-      std::string cmd = ""
-      "def my_program():\n"
-      "\tsock_fd = \"socket_3\"\n"
-      "\tret = socket_open(\"127.0.0.1\", 8080, sock_fd)\n"
-      "\tdata = get_actual_joint_positions()\n"
-      "\tdata_str = to_str(data)\n"
-      "if (ret == False):\n"
-      "\t\tpopup(\"failed to open socket\", \"Error\")\n"
-      "\tend\n"
-      "\tsocket_send_string(data_str, sock_fd)\n"
-      "\tsocket_close(sock_fd)\n"
-      "end\n";
-
-      std::cout << "\ncmd = \n" << cmd << "\n------------------------------\n";
-      ur_driver->setUrScriptCmd(cmd);
-    }).detach();
-
-    struct sockaddr_in client_addr;
-    socklen_t client_len = sizeof(client_addr);
-    int sock_fd = accept(main_sock, (struct sockaddr *)&client_addr, &client_len);
-    char client_ip[INET_ADDRSTRLEN];
-    if ( inet_ntop(AF_INET, (void *)&client_addr.sin_addr, client_ip, INET_ADDRSTRLEN) == NULL )
-      throw std::runtime_error(UR_Robot_fun_ + "Error on \"inet_ntop()\"...\n");
-    std::cout << "Got connection: ip=" << client_ip << ", port=" << ntohs(client_addr.sin_port) << "\n";
-
-    char buffer[1024];
-    int len = recv(sock_fd, buffer, 1024, 0);
-    if (len < 0)  throw std::runtime_error(UR_Robot_fun_ + "Error on \"recv()\"...\n");
-
-    std::cout << "===================================\n";
-    std::cout << "Received " << len << " bytes:\n";
-    std::cout << "msg: " << std::string(buffer,len) << "\n";
-    std::cout << "===================================\n";
-
-    close(sock_fd);
-    close(main_sock);
+    return ur_driver->getJointTorque();
   }
 
-  double servo_a, servo_v, servo_T, servo_lookahead_time, servo_gain;
+  // double servo_a, servo_v, servo_T, servo_lookahead_time, servo_gain;
 
   void setJointsPosition(const arma::vec &j_pos) override
   {
@@ -236,14 +177,15 @@ private:
 
   void protectiveStop() override;
 
-  void initRobot(const std::string &robot_ip, int reverse_port);
+  void initRobot(const std::string &host_ip, const std::string &robot_ip, int reverse_port);
 
   arma::vec last_joint_pos;
 
   UrDriver *ur_driver;
   void runUrDriver();
   std::thread ur_driver_thr;
-  std::string robot_ip;
+  std::string robot_ip_;
+  std::string host_ip_;
   int reverse_port;
   Semaphore shutdown_sem;
 

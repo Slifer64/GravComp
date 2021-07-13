@@ -1,5 +1,5 @@
 #include <robot_wrapper/lwr4p_robot.h>
-// #include <project_name_/utils.h>
+#include <robot_wrapper/utils/xml_parser.h>
 
 #include <ros/package.h>
 #include <pthread.h>
@@ -21,9 +21,6 @@ LWR4p_Robot::LWR4p_Robot(bool use_sim)
   if (!nh.getParam("tool_link",tool_link)) throw std::ios_base::failure("Failed to read parameter \"tool_link\".");
   if (!nh.getParam("ctrl_cycle",ctrl_cycle)) throw std::ios_base::failure("Failed to read parameter \"ctrl_cycle\".");
 
-  std::vector<double> temp;
-  if (nh.getParam("Fext_dead_zone",temp)) Fext_dead_zone = temp;
-
   // Initialize generic robot with the kuka-lwr model
   std::cerr << "=======> Creating robot...\n";
   if (use_sim)
@@ -40,35 +37,68 @@ LWR4p_Robot::LWR4p_Robot(bool use_sim)
   else robot.reset(new lwr4p_::Robot(robot_desc, base_link, tool_link, ctrl_cycle));
   std::cerr << "=======> Robot created successfully!\n";
 
+  initWrenchInterface(std::bind(&LWR4p_Robot::getTaskRotMat,this));
+  initInvKinematicsInterface();
+  initPublishStateInterface(robot_desc, getJointNames(), std::bind(&LWR4p_Robot::getJointsPosition, this));
+
+  std::string params_filename = ros::package::getPath("robot_wrapper") + "/config/params.yaml";
+  rw_::XmlParser parser(params_filename);
+
+  std::string load_fail_msg = LWR4p_Robot_fun_ + "Failed to load param ";
+
+  // =======  load the relative rotation between the robot end-effector and the tool  =======
+  arma::mat R_et;
+  if (parser.getParam("ee_tool_rot", R_et)) this->setEeToolRot(R_et);
+
+  // =======  check whether to use joint limit avoidance  =======
+  use_jlav = false;
+  if (parser.getParam("use_jlav", use_jlav) && use_jlav)
+  {
+    double jlav_gain, jlim_safety_margin;
+    if (!parser.getParam("jlav_gain", jlav_gain)) throw std::runtime_error(load_fail_msg + "\"jlav_gain\"...");
+    if (!parser.getParam("jlim_safety_margin", jlim_safety_margin)) throw std::runtime_error(load_fail_msg + "\"jlim_safety_margin\"...");
+    this->setJLAV(jlav_gain, jlim_safety_margin);
+  }
+
+
+
   Ts = robot->getCtrlCycle();
   if (Ts == 0) throw std::runtime_error(LWR4p_Robot_fun_ + "control cycle is 0...");
 
   N_JOINTS = robot->getNumJoints();
 
-  get_wrench_fun = std::bind(&LWR4p_Robot::getTaskWrenchFromRobot, this);
-
   mode.set(rw_::STOPPED);
   cmd_mode.set(rw_::IDLE);
   jpos_cmd.set(robot->getJointsPosition());
 
+  run_ = true;
   std::thread robot_ctrl_thread = std::thread(&LWR4p_Robot::commandThread,this);
   int err_code = thr_::setThreadPriority(robot_ctrl_thread, SCHED_FIFO, 99);
   if (err_code) PRINT_WARNING_MSG(LWR4p_Robot_fun_ + "Failed to set thread priority! Reason:\n" + thr_::setThreadPriorErrMsg(err_code) + "\n", std::cerr);
   else PRINT_INFO_MSG(LWR4p_Robot_fun_ + "Set thread priority successfully!\n", std::cerr);
   robot_ctrl_thread.detach();
 
+  PRINT_INFO_MSG("OK r13\n");
+
   mode_change.wait(); // wait for mode to be set
+
+  PRINT_INFO_MSG("OK r14\n");
 }
 
 LWR4p_Robot::~LWR4p_Robot()
-{}
+{
+  run_ = false;
+}
 
 void LWR4p_Robot::setMode(const Mode &mode)
 {
   if (mode == cmd_mode.get()) return;
 
   cmd_mode.set(mode);
-  mode_change.wait(); // wait to get notification from commandThread
+  while (getMode()!=mode && isOk()) // to avoid spurious wake ups
+  {
+    mode_change.wait(); // wait to get notification from commandThread
+  }
 }
 
 void LWR4p_Robot::commandThread()
@@ -80,8 +110,16 @@ void LWR4p_Robot::commandThread()
 
   arma::wall_clock timer;
 
-  while (isOk())
+  while (run_)
   {
+    if (!isOk())
+    {
+      // notify all to avoid deadlocks
+      //mode_change.notify();
+      KRC_tick.notify();
+      continue;
+    }
+
     timer.tic();
 
     Mode new_mode = cmd_mode.read();
@@ -101,6 +139,10 @@ void LWR4p_Robot::commandThread()
         case rw_::Mode::FREEDRIVE:
           robot->setMode(lwr4p_::Mode::FREEDRIVE);
           jtorque_cmd.set(arma::vec().zeros(N_JOINTS));
+          break;
+        case rw_::Mode::ADMITTANCE:
+          robot->setMode(lwr4p_::Mode::JOINT_VEL_CONTROL);
+          adm_ctrl->init();
           break;
         case rw_::Mode::CART_VEL_CTRL:
           robot->setMode(lwr4p_::Mode::JOINT_VEL_CONTROL);
@@ -137,17 +179,16 @@ void LWR4p_Robot::commandThread()
         break;
       case JOINT_TORQUE_CONTROL:
         robot->setJointsTorque(jtorque_cmd.get());
-        // std::cerr << "jtorque_cmd.get() = " << jtorque_cmd.get().t() << "\n";
+        break;
+      case rw_::Mode::ADMITTANCE:
+        adm_ctrl->update();
+        dq = getInvJacobian()*adm_ctrl->getVelocity();
+        if (this->use_jlav) dq += jlav->getControlSignal(getJointsPosition());
+        robot->setJointsVelocity(dq);
         break;
       case CART_VEL_CTRL:
-        J = robot->getJacobian();
-
-        if (this->use_svf) dq = svf->pinv(J)*cart_vel_cmd.get();
-        else dq = arma::pinv(J)*cart_vel_cmd.get();
-
+        dq = getInvJacobian()*cart_vel_cmd();
         if (this->use_jlav) dq += jlav->getControlSignal(getJointsPosition());
-
-        // std::cerr << "dq = " << dq.t() << "\n";
         robot->setJointsVelocity(dq);
         break;
       case rw_::Mode::FREEDRIVE:
@@ -155,13 +196,10 @@ void LWR4p_Robot::commandThread()
         // robot->setJointsTorque(arma::vec().zeros(7));
         break;
       case rw_::Mode::IDLE:
-        // std::cerr << "*** Send command in IDLE mode ***\n";
-        // std::cerr << "Robot mode: " << robot->getModeName() << "\n";
         robot->setJointsPosition(jpos_cmd.get());
         break;
       case rw_::Mode::STOPPED:
       case rw_::Mode::PROTECTIVE_STOP:
-        // std::cerr << "***  MODE: STOPPED ***\n";
         break;
     }
 
@@ -170,12 +208,12 @@ void LWR4p_Robot::commandThread()
     KRC_tick.notify();
 
     double elaps_time = timer.toc();
-    if (elaps_time > 1.5*getCtrlCycle())
-    {
-      std::ostringstream oss;
-      oss << elaps_time*1000;
-      PRINT_WARNING_MSG(LWR4p_Robot_fun_ + "*** WARNING *** Elaps time = " + oss.str() + " ms\n");
-    }
+    // if (elaps_time > 1.5*getCtrlCycle())
+    // {
+    //   std::ostringstream oss;
+    //   oss << elaps_time*1000;
+    //   PRINT_WARNING_MSG(LWR4p_Robot_fun_ + "*** WARNING *** Elaps time = " + oss.str() + " ms\n");
+    // }
   }
 
   // mode_change.notify(); // unblock in case wait was called from another thread
@@ -210,13 +248,6 @@ bool LWR4p_Robot::setJointsTrajectory(const arma::vec &qT, double duration)
       return false;
     }
 
-    if (emergencyStop())
-    {
-      err_msg = "Emergency stop triggered!";
-      setEmergencyStop(false);
-      return false;
-    }
-
     // compute time now
     t += getCtrlCycle();
     // update trajectory
@@ -243,5 +274,3 @@ void LWR4p_Robot::stop()
 }
 
 } // namespace rw_
-
-

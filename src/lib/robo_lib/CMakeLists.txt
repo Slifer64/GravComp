@@ -10,10 +10,12 @@ find_package(catkin REQUIRED
   roslib
   orocos_kdl
   kdl_parser
+  robot_state_publisher
 )
 
 catkin_package(
   INCLUDE_DIRS include
+  ${catkin_INCLUDE_DIRS}
   CATKIN_DEPENDS roscpp
   DEPENDS orocos_kdl
 )
@@ -24,6 +26,7 @@ SET(SRC_LIST
   src/singular_value_filter.cpp
   src/tool_estimator.cpp
   src/joint_state_publisher
+  src/robot_state_publisher
   src/xml_parser.cpp
 )
 

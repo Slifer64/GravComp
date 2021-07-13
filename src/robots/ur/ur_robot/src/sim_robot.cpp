@@ -130,6 +130,11 @@ arma::vec SimRobot::getTcpWrench() const
   return get_wrench_fun_ptr();
 }
 
+arma::vec SimRobot::getJointsTorque() const
+{
+  return arma::vec().zeros(6);
+}
+
 // =================  SET functions  ========================
 
 void SimRobot::setJointsPosition(const arma::vec &j_pos)

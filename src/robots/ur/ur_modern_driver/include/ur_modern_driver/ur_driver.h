@@ -50,18 +50,19 @@ enum State
 	CART_POS_CTRL = 3,
 	CART_VEL_CTRL = 4,
   FREEDRIVE = 5,
-	BIAS_FT_SENSOR = 6,
-	TERMINATE = 7,
+  IDLE_MODE = 6,
+	BIAS_FT_SENSOR = 7,
+	TERMINATE = 8,
 };
 
 public:
 
-  UrDriver(std::string host, unsigned int reverse_port = 50001, double servoj_time = 0.008, double max_time_step = 0.08,
-       double min_payload = 0., double max_payload = 1., double servoj_lookahead_time=0.03, double servoj_gain=300.);
+  UrDriver(const std::string &host_ip, const std::string &robot_ip, unsigned reverse_port = 8080);
   ~UrDriver();
 	bool start();
 	void halt();
 
+  bool isDisconnected() const { return !reverse_connected_; }
   bool isEmergencyStopped() const { return sec_interface_->robot_state_.isProtectiveStopped(); }
   bool isRobotConnected() const { return sec_interface_->robot_state_.isRobotConnected(); }
   bool isProgramRunning() const { return sec_interface_->robot_state_.isProgramRunning(); }
@@ -75,6 +76,7 @@ public:
   std::vector<double> getTcpPos() const { return tcp_pos; }
   std::vector<double> getTcpQuat() const { return tcp_quat; }
   std::vector<double> getTcpVel() const { return tcp_vel; }
+  std::vector<double> getJointTorque() const { return joint_torq; }
 
   std::vector<double> getJointTargetVel() const { return joint_target_vel; }
 
@@ -83,24 +85,10 @@ public:
 
   ur_::Semaphore update_sem;
 
-	void setToolVoltage(unsigned int v);
-	void setFlag(unsigned int n, bool b);
-	void setDigitalOut(unsigned int n, bool b);
-	void setAnalogOut(unsigned int n, double f);
-	bool setPayload(double m);
-
-	void setMinPayload(double m);
-	void setMaxPayload(double m);
-	void setServojTime(double t);
-	void setServojLookahead(double t);
-	void setServojGain(double g);
-
   void readRTMsg();
   void readMbMsg();
 
   void setUrScriptCmd(const std::string &cmd) { ur_script_cmd.set(cmd); }
-
-  double getServojTime() const { return servoj_time_; }
 
   void startReverseCom();
   void stopReverseCom();
@@ -120,9 +108,19 @@ public:
 
   void freedrive_mode();
 
+  void idle_mode();
+
+  void terminate();
+
   void biasFtSensor();
 
 private:
+
+  std::string loadUrDriverProgram();
+
+  void readRobotStateThread();
+  void unpackState(char *buff, int size);
+  void unpackVector(char *buff, int size, int &i1, int &i2, std::vector<double> &unpack_to);
 
   char *writeDouble(char *buf, double val);
 
@@ -130,38 +128,34 @@ private:
 
   void writeCommand(int state, const arma::vec &cmd_, double vel, double accel);
 
-  double maximum_time_step_;
-  double minimum_payload_;
-  double maximum_payload_;
   std::vector<std::string> joint_names_;
   std::string ip_addr_;
   const int MULT_JOINTSTATE_ = 1000000;
-  const int MULT_TIME_ = 1000000;
-  const unsigned int REVERSE_PORT_;
   int incoming_sockfd_;
   int new_sockfd_;
   bool reverse_connected_;
-  double servoj_time_;
-  bool executing_traj_;
   double firmware_version_;
-  double servoj_lookahead_time_;
-  double servoj_gain_;
+
+  const std::string host_ip_;
+  const std::string robot_ip_;
+  const unsigned int REVERSE_PORT_;
 
   ur_::Semaphore rt_msg_sem;
   ur_::Semaphore msg_sem;
-
-  std::vector<double> joint_offsets_;
 
   bool keep_alive_;
 
   std::thread rt_read_thread_;
   std::thread mb_read_thread_;
 
+  std::thread read_state_thr;
+
   ur_::Timer timer;
 
   double t; // current timestamp
   std::vector<double> joint_pos;
   std::vector<double> joint_vel;
+  std::vector<double> joint_torq;
   std::vector<double> effort;
   std::vector<double> tcp_wrench;
   std::vector<double> tcp_pos;
@@ -171,6 +165,8 @@ private:
   std::vector<double> joint_target_vel;
 
   ur_::MtxVar<std::string> ur_script_cmd;
+
+  std::string ur_driver_program_;
 };
 
 #endif /* UR_DRIVER_H_ */

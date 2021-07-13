@@ -1,0 +1,9 @@
+# =======  ADMITTANCE CONTROLLER PARAMS  =========
+
+Mp: [5; 5; 5] # cart pos stiffness
+Dp: [40; 40; 40] # cart pos damping
+
+Mo: [0.08; 0.08; 0.08] # cart orient stiffness
+Do: [0.4; 0.4; 0.4] # cart orient damping
+
+a_f: 0.01 # filtering coeff for wrench (1: no filtering)

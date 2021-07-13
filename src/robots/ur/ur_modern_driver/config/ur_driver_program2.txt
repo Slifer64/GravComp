@@ -8,18 +8,15 @@ def driverProg():
 
 	global servo_lookahead_time = 0.02
 
-	global keepalive = True
+	global keepalive = 1
 
 	ip_addr = <HOST_IP> # "10.0.0.3"
 	reverse_port_ = <REVERSE_PORT> # 8080
 	sock_fd_ = "socket_1"
-	sock_read_timeout = 0.02 # seconds
+	sock_read_timeout = 2 # seconds
 
-	global MAX_NO_CMD_COUNT = 4
+	global MAX_NO_CMD_COUNT = 10
 	global NO_CMD_COUNT = 0
-	global RECEIVED_CMD = False
-
-	global GLOBAL_MSG = ""
 
 	# ====== define the states  ======
 	global UNASSIGNED_STATE = 0
@@ -28,26 +25,23 @@ def driverProg():
 	global JOINT_VEL_CTRL = 2
 	global CART_POS_CTRL = 3
 	global CART_VEL_CTRL = 4
-	global FREEDRIVE = 5
-	global IDLE_MODE = 6
 
-	global BIAS_FT_SENSOR = 7
-	global TERMINATE = 8
+	global FREEDRIVE = 5
+
+	global BIAS_FT_SENSOR = 6
+	global TERMINATE = 7
 
 	# ========  Initialize  =========
 
-	global servoj_state = IDLE_MODE
-	global cmd_state = IDLE_MODE
+	global cmd_state = 0
 	global cmd_arg1 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 	global cmd_arg2 = 0.0
 	global cmd_arg3 = 0.0
 
-	global SERVOJ_STATE_MSG = "IDLE_MODE"
-
 	# ========  Function: Set commanded values  ==========
 
 	def setState(state):
-		if (state >= JOINT_POS_CTRL) and (state <= IDLE_MODE):
+		if (state >= JOINT_POS_CTRL) and (state <= FREEDRIVE):
 			enter_critical
 			cmd_state = state
 			exit_critical
@@ -59,7 +53,7 @@ def driverProg():
 			cmd_arg1 = arg1
 			cmd_arg2 = arg2
 			cmd_arg3 = arg3
-			RECEIVED_CMD = True
+			NO_CMD_COUNT = 0
 		exit_critical
 	end
 
@@ -106,56 +100,56 @@ def driverProg():
 
 		while (True):
 
+			state = UNASSIGNED_STATE
+
 			enter_critical
-				#if (RECEIVED_CMD):
-					servoj_state = cmd_state
+				NO_CMD_COUNT = NO_CMD_COUNT + 1
+				#if (NO_CMD_COUNT > MAX_NO_CMD_COUNT):
+				#	state = JOINT_VEL_CTRL
+				#	arg1 = [0,0,0,0,0,0]
+				#	arg2 = 0
+				#	arg3 = 10
+				#	NO_CMD_COUNT = MAX_NO_CMD_COUNT
+				#else:
+					state = cmd_state
 					arg1 = cmd_arg1
 					arg2 = cmd_arg2
 					arg3 = cmd_arg3
-					RECEIVED_CMD = False
 				#end
 			exit_critical
 
-			if (freedrive_on) and (servoj_state != FREEDRIVE):
+			#textmsg("NO_CMD_COUNT: ", to_str(NO_CMD_COUNT))
+
+			if (freedrive_on) and (state != FREEDRIVE):
 				end_freedrive_mode()
 				freedrive_on = False
 			end
 
-			if (servoj_state == JOINT_POS_CTRL):
+			if (state == JOINT_POS_CTRL):
 
-				SERVOJ_STATE_MSG = "JOINT_POS_CTRL"
 				servoj(arg1, arg3, arg2, ctrl_cycle, servo_lookahead_time, servo_gain)
 
-			elif (servoj_state == JOINT_VEL_CTRL):
+			elif (state == JOINT_VEL_CTRL):
 
-				SERVOJ_STATE_MSG = "JOINT_VEL_CTRL"
 				speedj(arg1, arg3, ctrl_cycle)
 
-			elif (servoj_state == CART_POS_CTRL):
+			elif (state == CART_POS_CTRL):
 
-				SERVOJ_STATE_MSG = "CART_POS_CTRL"
 				q = get_inverse_kin( p[arg1[0], arg1[1], arg1[2], arg1[3], arg1[4], arg1[5]])
 				servoj(q, arg3, arg2, ctrl_cycle, servo_lookahead_time, servo_gain)
 
-			elif (servoj_state == CART_VEL_CTRL):
+			elif (state == CART_VEL_CTRL):
 
-				SERVOJ_STATE_MSG = "CART_VEL_CTRL"
 				speedl(arg1, arg3, ctrl_cycle)
 
-			elif (servoj_state == FREEDRIVE) and (freedrive_on == False):
+			elif (state == FREEDRIVE) and (freedrive_on == False):
 
-				SERVOJ_STATE_MSG = "FREEDRIVE"
 				freedrive_on = True
 				freedrive_mode()
 
-			elif (servoj_state == IDLE_MODE):
+			elif (state == TERMINATE):
 
-				SERVOJ_STATE_MSG = "IDLE_MODE"
-				stopj(10)
-
-			elif (servoj_state == TERMINATE):
-
-				keepalive = False
+				keepalive = 0
 
 			else:
 
@@ -191,25 +185,17 @@ def driverProg():
 	textmsg("Send-data thread started!")
 
 	# ========  Read from socket loop  ==========
-	action = UNASSIGNED_STATE
+	while keepalive > 0:
 
-	while keepalive :
-
-		params_ = socket_read_binary_integer(9, sock_fd_, sock_read_timeout)
+		params_ = socket_read_binary_integer(30, sock_fd_, sock_read_timeout)
 		#params_ = socket_read_ascii_float(9, sock_fd_, sock_read_timeout)
 		if (params_[0] > 0):
 
-			NO_CMD_COUNT = 0
+			state = params_[1]
 
-			action = params_[1]
+			if (state > 0) and ( state < 5):
 
-			if (action > UNASSIGNED_STATE) and ( action < BIAS_FT_SENSOR):
-				setState(action)
-			end
-
-			if (action > 0) and ( action < 5):
-
-				cmd_state = action
+				cmd_state = state
 
 				arg1 = [params_[2] / MULT_, params_[3] / MULT_, params_[4] / MULT_, params_[5] / MULT_, params_[6] / MULT_, params_[7] / MULT_]
 				arg2 = params_[8] / MULT_
@@ -224,22 +210,14 @@ def driverProg():
 
 				setCmd(arg1, arg2, arg3)
 
-			elif (action == BIAS_FT_SENSOR):
+			elif (state == BIAS_FT_SENSOR):
 
 				zero_ftsensor()
 
 			end
 
-		else:
+			setState(state)
 
-			if (servoj_state != FREEDRIVE) and (servoj_state != IDLE_MODE):
-				NO_CMD_COUNT = NO_CMD_COUNT + 1
-			end
-
-		end
-
-		if (NO_CMD_COUNT > MAX_NO_CMD_COUNT):
-			keepalive = False
 		end
 
 	end

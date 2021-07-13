@@ -32,49 +32,84 @@ void closeSocket(int sock_fd)
   ::close(sock_fd);
 }
 
-WaitResult waitForWrite(int sock_fd, struct timeval timeout, int *err_code)
+void bind(int sock_fd, int port, const std::string &listen_addr)
+{
+  struct sockaddr_in serv_addr;
+	bzero((char *) &serv_addr, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+  inet_pton(AF_INET, listen_addr.c_str(), (void *)&serv_addr.sin_addr);
+	// serv_addr.sin_addr.s_addr = INADDR_ANY;
+	serv_addr.sin_port = htons(port);
+
+	if (::bind(sock_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+    throw std::runtime_error(Ur_Com_fun_ + "Error on \"bind()\": " + std::strerror(errno));
+}
+
+void listen(int sock_fd, int num_of_connections)
+{
+	if ( ::listen(sock_fd, num_of_connections) < 0 ) // listen(server_fid, SOMAXCONN)
+		throw std::runtime_error(Ur_Com_fun_ + "Error on \"listen()\": " + std::strerror(errno));
+}
+
+int acceptClient(int sock_fd)
+{
+  struct sockaddr_in cli_addr;
+	socklen_t clilen = sizeof(cli_addr);
+	int new_sockfd_ = ::accept(sock_fd, (struct sockaddr *) &cli_addr, &clilen);
+  if (new_sockfd_ < 0) throw std::runtime_error(Ur_Com_fun_ + "Error on \"accept()\": " + std::strerror(errno));
+
+  return new_sockfd_;
+}
+
+int acceptClient(int sock_fd, const Timeout &tm_out)
+{
+	int err_code = com_::waitForRead(sock_fd, tm_out);
+
+  if (err_code != 0) throw std::runtime_error(Ur_Com_fun_ + com_::getErrMsg(err_code));
+
+  struct sockaddr_in cli_addr;
+	socklen_t clilen = sizeof(cli_addr);
+	int new_sockfd_ = ::accept(sock_fd, (struct sockaddr *) &cli_addr, &clilen);
+  if (new_sockfd_ < 0) throw std::runtime_error(Ur_Com_fun_ + "Error on \"accept()\": " + std::strerror(errno));
+
+  return new_sockfd_;
+}
+
+int waitForWrite(int sock_fd, const Timeout &tm_out)
 {
   fd_set write_fds;
   FD_ZERO(&write_fds);
   FD_SET(sock_fd, &write_fds);
 
   struct timespec timeout_;
-  timeout_.tv_sec = timeout.tv_sec;
-  timeout_.tv_nsec = timeout.tv_usec * 1000;
+  timeout_.tv_sec = tm_out.getSec();
+  timeout_.tv_nsec = tm_out.getMicroSec() * 1000;
 
-  if (::pselect(sock_fd + 1, NULL, &write_fds, NULL, &timeout_, NULL) < 0)
-  {
-    if (err_code) *err_code = errno;
-    return com_::ERROR;
-  }
+  if (::pselect(sock_fd + 1, NULL, &write_fds, NULL, &timeout_, NULL) < 0) return errno;
 
-  if (FD_ISSET(sock_fd, &write_fds)) return com_::READY;
-  else return com_::TIMEOUT;
+  if (FD_ISSET(sock_fd, &write_fds)) return 0;
+  else return ETIME;
 }
 
-WaitResult waitForRead(int sock_fd, struct timeval timeout, int *err_code)
+int waitForRead(int sock_fd, const Timeout &tm_out)
 {
   fd_set read_fds;
   FD_ZERO(&read_fds);
   FD_SET(sock_fd, &read_fds);
 
   struct timespec timeout_;
-  timeout_.tv_sec = timeout.tv_sec;
-  timeout_.tv_nsec = timeout.tv_usec * 1000;
+  timeout_.tv_sec = tm_out.getSec();
+  timeout_.tv_nsec = tm_out.getMicroSec() * 1000;
 
-  if (::pselect(sock_fd + 1, &read_fds, NULL, NULL, &timeout_, NULL) < 0)
-  {
-    if (err_code) *err_code = errno;
-    return com_::ERROR;
-  }
+  if (::pselect(sock_fd + 1, &read_fds, NULL, NULL, &timeout_, NULL) < 0) return errno;
 
-  if (FD_ISSET(sock_fd, &read_fds)) return com_::READY;
-  else return com_::TIMEOUT;
+  if (FD_ISSET(sock_fd, &read_fds)) return 0;
+  else return ETIME;
 }
 
-void connectToServer(int sock_fd, const std::string &server_name, int port, struct timeval timeout)
+void connectToServer(int sock_fd, const std::string &server_name, int port, const Timeout &tm_out)
 {
-  if (sock_fd < 0) throw std::runtime_error(Ur_Com_fun_ + "You have to call \"openClient()\" first!");
+  if (sock_fd < 0) throw std::runtime_error(Ur_Com_fun_ + "You have to call \"openSocket()\" first!");
 
   struct sockaddr_in serv_addr_;
 	struct hostent *server_;
@@ -86,20 +121,26 @@ void connectToServer(int sock_fd, const std::string &server_name, int port, stru
 	// inet_pton(AF_INET, host_ip.c_str(), (void *)&server_addr.sin_addr.s_addr);
 	serv_addr_.sin_port = htons(port);
 
+	bool was_blocking = isBlocking(sock_fd);
+	if (was_blocking) setNonBlocking(sock_fd, true); // make non blocking to use timeout
+
   if (::connect(sock_fd, (struct sockaddr *)&serv_addr_, sizeof(serv_addr_)) < 0)
   {
     if (errno==EINPROGRESS) // && !tm.isNull())
     {
-      if (waitForWrite(sock_fd, timeout) != com_::READY)
-          throw std::runtime_error(Ur_Com_fun_ + "Error while waiting to connect to port " + std::to_string(port));
+      int err_code = waitForWrite(sock_fd, tm_out);
+      if ( err_code != 0)
+          throw std::runtime_error(Ur_Com_fun_ + "Error while waiting to connect to port " + std::to_string(port) + ": " + com_::getErrMsg(err_code));
     }
     else throw std::runtime_error(Ur_Com_fun_ + "Error on \"connect()\": " + std::strerror(errno));
   }
+
+  if (was_blocking) setNonBlocking(sock_fd, false); // restore previous setup
 }
 
 void connectToServer(int sock_fd, const std::string &server_name, int port)
 {
-  if (sock_fd < 0) throw std::runtime_error(Ur_Com_fun_ + "You have to call \"openClient()\" first!");
+  if (sock_fd < 0) throw std::runtime_error(Ur_Com_fun_ + "You have to call \"openSocket()\" first!");
 
   struct sockaddr_in serv_addr_;
 	struct hostent *server_;
@@ -129,12 +170,28 @@ int write(int sockfd_, const char *buffer, unsigned len, bool send_all)
   return (len-remain);
 }
 
-int read(int sockfd_, char *buffer, unsigned max_len)
+int read(int sockfd_, char *buffer, unsigned max_len, int *err_code)
 {
   if (sockfd_ < 0) throw std::runtime_error(Ur_Com_fun_ + "Invalid file descriptor!");
-  return ::read(sockfd_, buffer, max_len);
+  int bytes_read = ::read(sockfd_, buffer, max_len);
+  if (bytes_read < 0 && err_code) *err_code = errno;
+  return bytes_read;
 }
 
+int read(int sockfd_, char *buffer, unsigned max_len, const Timeout &tm_out, int *err_code)
+{
+  if (sockfd_ < 0) throw std::runtime_error(Ur_Com_fun_ + "Invalid file descriptor!");
+
+  int err_ = com_::waitForRead(sockfd_, tm_out);
+
+  if (err_ != 0)
+  {
+    if (err_code) *err_code = err_;
+    return -1;
+  }
+
+  return com_::read(sockfd_, buffer, max_len, err_code);
+}
 
 void setReuseAddr(int sock_fd, bool set)
 {
@@ -155,6 +212,16 @@ void setNonBlocking(int sock_fd, bool set)
 
   if (fcntl(sock_fd, F_SETFL, flags) < 0)
     throw std::runtime_error(Ur_Com_fun_ + "Error on \"fcntl(fd, F_SETFL, O_NONBLOCK)\": " + std::strerror(errno));
+}
+
+bool isBlocking(int sock_fd)
+{
+  if (sock_fd < 0) throw std::runtime_error(Ur_Com_fun_ + "Invalid socket file descriptor...\n");
+
+  int flags = fcntl(sock_fd, F_GETFL);
+  if (flags < 0) throw std::runtime_error(Ur_Com_fun_ + "Error on \"fcntl(fd, F_GETFL)\": " + std::strerror(errno));
+
+  return flags & O_NONBLOCK;
 }
 
 void setQuickAck(int sock_fd, bool set)

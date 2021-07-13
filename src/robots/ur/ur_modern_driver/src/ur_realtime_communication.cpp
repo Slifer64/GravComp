@@ -53,10 +53,7 @@ void UrRealtimeCommunication::init()
   com_::setReuseAddr(sockfd_, true);
   com_::setNonBlocking(sockfd_, true);
 
-  struct timeval timeout;
-  timeout.tv_sec = 10;
-  timeout.tv_usec = 0;
-  com_::connectToServer(sockfd_, host_, port_, timeout);
+  com_::connectToServer(sockfd_, host_, port_, com_::Timeout(10,0));
   connected_ = true;
 }
 
@@ -98,18 +95,13 @@ void UrRealtimeCommunication::run()
 	int bytes_read;
 	bzero(buf, 2048);
 
-  struct timeval timeout;
-  timeout.tv_sec = 0; //do this each loop as selects modifies timeout
-  timeout.tv_usec = 500000; // timeout of 0.5 sec
-  //timeout.tv_usec = 4000; // timeout of 4 ms
-
-  int err_code;
+  com_::Timeout tm(0, 500000);
 
   // wait a bit at first...
-  com_::WaitResult result = com_::waitForRead(sockfd_, timeout, &err_code);
+  int err_code = com_::waitForRead(sockfd_, tm);
 
   // change timeout
-  // timeout.tv_usec = 8000; // timeout of 8 ms
+  // tm.setMicroSec(2000); // timeout of 8 ms
 
 	print_debug("Realtime port: Got connection");
 
@@ -117,32 +109,25 @@ void UrRealtimeCommunication::run()
 	{
 		while (connected_ && keepalive_)
 		{
-      com_::WaitResult result = com_::waitForRead(sockfd_, timeout, &err_code);
+      bytes_read = com_::read(sockfd_, (char *)buf, 2048, tm, &err_code);
 
-      if (result == com_::READY)
+      if (bytes_read > 0)
       {
-        bytes_read = ::read(sockfd_, buf, 2048);
-  			if (bytes_read > 0)
-  			{
-          com_::setQuickAck(sockfd_, true);
-  				robot_state_.unpack(buf);
-  				msg_sem_ptr->notify();
-  			}
-  			else connected_ = false;
+        com_::setQuickAck(sockfd_, true);
+        robot_state_.unpack(buf);
+        msg_sem_ptr->notify();
       }
-      else // (result != com_::READY)
+      else
       {
-        if (err_code == EINTR)
+        if (err_code == EINTR) // ignore "interrupt system call"
         {
-          print_warning(UrRtCom_fun_ + "Interrupt by system call...\n");
+          print_warning(UrRtCom_fun_ + com_::getErrMsg(EINTR));
           continue;
         }
-        if (result == com_::TIMEOUT) print_error(UrRtCom_fun_ + "Timeout on waitForRead...\n");
-        if (result == com_::ERROR) print_error(UrRtCom_fun_ + "Error on waitForRead: " + com_::getErrMsg(err_code));
+        print_error(UrRtCom_fun_ + "Error on \"read()\": " + com_::getErrMsg(err_code));
         print_info("Realtime port: Is connection lost? Will try to reconnect...\n");
         connected_ = false;
       }
-
 		}
 
     // attempt reconnect

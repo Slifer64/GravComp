@@ -146,6 +146,8 @@ void RobotState::unpackRobotMessageVersion(uint8_t * buf, unsigned int offset, u
 	if (version_msg_.major_version < 2) robot_mode_running_ = robotStateTypeV18::ROBOT_RUNNING_MODE;
 }
 
+#include <iostream>
+
 void RobotState::unpackRobotMode(uint8_t * buf, unsigned int offset)
 {
 	memcpy(&robot_mode_.timestamp, &buf[offset], sizeof(robot_mode_.timestamp));

@@ -4,8 +4,6 @@
 #include <sstream>
 #include <stack>
 
-#include <kdl_parser/kdl_parser.hpp>
-
 namespace as64_
 {
 
@@ -118,7 +116,7 @@ void KinematicChain::init()
   }
 
   // create KDL::Chain and forward/inverse kinematics and Jacobian solvers
-  KDL::Tree tree;
+  //KDL::Tree tree;
   kdl_parser::treeFromUrdfModel(urdf_model, tree);
 
   if (!tree.getChain(base_link_name, tool_link_name, chain))

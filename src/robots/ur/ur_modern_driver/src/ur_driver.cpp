@@ -22,14 +22,18 @@
 
 #include <ros/package.h>
 
+#include <io_lib/file_io.h>
+
 using namespace ur_;
+
+#define USE_readRTMsg 0
+// #define LOG_TIMES
+#define TIME_BUFF_SIZE 100000
 
 #define UrDriver_fun_ std::string("[UrDriver::") + __func__ + "]: "
 
-UrDriver::UrDriver(std::string host, unsigned int reverse_port, double servoj_time, double max_time_step,
-	  double min_payload, double max_payload, double servoj_lookahead_time, double servoj_gain) :
-		REVERSE_PORT_(reverse_port), maximum_time_step_(max_time_step), minimum_payload_(min_payload),
-		maximum_payload_(max_payload), servoj_time_(servoj_time), servoj_lookahead_time_(servoj_lookahead_time), servoj_gain_(servoj_gain)
+UrDriver::UrDriver(const std::string &host_ip, const std::string &robot_ip, unsigned reverse_port):
+REVERSE_PORT_(reverse_port), host_ip_(host_ip), robot_ip_(robot_ip)
 {
   t = 0;
   joint_pos = {6, 0.0};
@@ -51,83 +55,267 @@ UrDriver::UrDriver(std::string host, unsigned int reverse_port, double servoj_ti
 
 	firmware_version_ = 0;
 	reverse_connected_ = false;
-	executing_traj_ = false;
-	rt_interface_ = new UrRealtimeCommunication(rt_msg_sem, host);
+	rt_interface_ = new UrRealtimeCommunication(rt_msg_sem, robot_ip_);
 	new_sockfd_ = -1;
-	sec_interface_ = new UrCommunication(msg_sem, host);
+	sec_interface_ = new UrCommunication(msg_sem, robot_ip_);
 
-	incoming_sockfd_ = com_::openSocket(AF_INET, SOCK_STREAM);
-	if (incoming_sockfd_ < 0) print_fatal("ERROR opening socket for reverse communication");
+  ur_driver_program_ = loadUrDriverProgram();
 
 	keep_alive_ = true;
 }
 
 UrDriver::~UrDriver()
 {
-	stopReverseCom();
+  PRINT_WARNING_MSG("\n\n[UrDriver::~UrDriver]: Destructing!!!\n\n");
+	halt();
   delete rt_interface_;
   delete sec_interface_;
 }
 
+std::string UrDriver::loadUrDriverProgram()
+{
+  std::string filename = ros::package::getPath("ur_modern_driver") + "/config/ur_driver_program.txt";
+  std::string program_;
+  ur_::readFile(filename, program_);
+
+  std::vector<std::string> placeholder_ = {"<HOST_IP>", "<REVERSE_PORT>", "<MULT>"};
+  std::vector<std::string> value_ = {"\""+host_ip_+"\"", std::to_string(REVERSE_PORT_), std::to_string(MULT_JOINTSTATE_)};
+
+  auto str_rep = [&program_](const std::string &ph_, const std::string &val)
+  {
+    int i = program_.find(ph_);
+    if (i==std::string::npos) throw std::runtime_error(UrDriver_fun_ + "Failed to find \"" + ph_ + "\". Is the ur_driver program corrupted?");
+    program_ = program_.substr(0, i) + val + program_.substr(i+ph_.length());
+  };
+
+  for (int i=0; i<placeholder_.size(); i++) str_rep(placeholder_[i], value_[i]);
+
+  return program_;
+}
+
 void UrDriver::startReverseCom()
 {
-	std::string filename = ros::package::getPath("ur_modern_driver") + "/config/ur_driver_program.txt";
-	std::string program_;
-	ur_::readFile(filename, program_);
-
-	struct sockaddr_in serv_addr;
-	bzero((char *) &serv_addr, sizeof(serv_addr));
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = INADDR_ANY;
-	serv_addr.sin_port = htons(REVERSE_PORT_);
-
+	incoming_sockfd_ = com_::openSocket(AF_INET, SOCK_STREAM);
 	// com_::setNoDelay(incoming_sockfd_, true);
 	com_::setReuseAddr(incoming_sockfd_, true);
-
-	if (bind(incoming_sockfd_, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-		throw std::runtime_error("ERROR on binding socket for reverse communication");
-
-	if ( listen(incoming_sockfd_, 1) < 0 ) // listen(server_fid, SOMAXCONN)
-		throw std::runtime_error(UrDriver_fun_ + "Error on \"listen()\"...\n");
-
+  com_::bind(incoming_sockfd_, REVERSE_PORT_, host_ip_); // com_::bind(incoming_sockfd_, REVERSE_PORT_, "0.0.0.0");
+	com_::listen(incoming_sockfd_, 1);
 	com_::setNonBlocking(incoming_sockfd_, true);
 
-	setUrScriptCmd(program_);
-
-	struct timeval timeout;
-	timeout.tv_sec = 10;
-	timeout.tv_usec = 0;
-	int err_code;
-	com_::WaitResult res = com_::waitForRead(incoming_sockfd_, timeout, &err_code);
+	//setUrScriptCmd(program_);
+	rt_interface_->addCommandToQueue(ur_driver_program_);
 
 	print_debug(UrDriver_fun_ + "Waiting to accept client...\n");
-	struct sockaddr_in cli_addr;
-	socklen_t clilen;
-	clilen = sizeof(cli_addr);
-	new_sockfd_ = accept(incoming_sockfd_, (struct sockaddr *) &cli_addr, &clilen);
-
-	if (res != com_::READY)
-	{
-		if (res == com_::ERROR) throw std::runtime_error(UrDriver_fun_ + com_::getErrMsg(err_code));
-		if (res == com_::TIMEOUT) throw std::runtime_error(UrDriver_fun_ + "Timeout reached on waiting to accept client...\n");
-	}
-
-	if (new_sockfd_ < 0) throw std::runtime_error(UrDriver_fun_ + "ERROR on accepting reverse communication");
+	new_sockfd_ = com_::acceptClient(incoming_sockfd_, com_::Timeout(10,0));
 
 	print_debug(UrDriver_fun_ + "Listening on " + com_::getLocalIp(new_sockfd_) + ":" + std::to_string(com_::getLocalPort(new_sockfd_)) + "\n");
 
-	reverse_connected_ = true;
+  reverse_connected_ = true;
+
+	if (!USE_readRTMsg) readRobotStateThread();
 }
 
 void UrDriver::stopReverseCom()
 {
-	if (reverse_connected_)
-	{
-		rt_interface_->addCommandToQueue("stopj(10)\n");
-		reverse_connected_ = false;
-		close(new_sockfd_);
-	}
+  keep_alive_ = false;
+  if (read_state_thr.joinable()) read_state_thr.join();
 }
+
+void UrDriver::readRobotStateThread()
+{
+
+	read_state_thr = std::thread([this]()
+	{
+    auto reconnect_fun_ = [this]()
+    {
+      reverse_connected_ = false;
+      close(new_sockfd_);
+      close(incoming_sockfd_);
+
+      // give some time to "ur_communication" to read the robot state, so that protective/emergency stop flags are properly updated
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+      ur_::Timer timer;
+      timer.start();
+      while (isProtectiveStopped() || isEmergencyStopped())
+      {
+        //std::cerr << "isProtectiveStopped = " << isProtectiveStopped() << "\n";
+        //std::cerr << "isEmergencyStopped = " << isEmergencyStopped() << "\n\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        if (timer.elapsedMilliSec() > 10000)
+        {
+          print_error("[UrDriver::readRobotStateThread]: 10 sec passed and the robot is still not enabled... Aborting reconnection attempt...\n");
+          return;
+        }
+      }
+
+      // if (isProtectiveStopped()) std::this_thread::sleep_for(std::chrono::seconds(4));
+
+      incoming_sockfd_ = com_::openSocket(AF_INET, SOCK_STREAM);
+      com_::setReuseAddr(incoming_sockfd_, true);
+      com_::bind(incoming_sockfd_, REVERSE_PORT_, host_ip_);
+      com_::listen(incoming_sockfd_, 1);
+      com_::setNonBlocking(incoming_sockfd_, true);
+      //setUrScriptCmd(program_);
+      rt_interface_->addCommandToQueue(ur_driver_program_);
+      print_debug(UrDriver_fun_ + "Waiting to accept client...\n");
+      new_sockfd_ = com_::acceptClient(incoming_sockfd_, com_::Timeout(10,0));
+      print_debug(UrDriver_fun_ + "Listening on " + com_::getLocalIp(new_sockfd_) + ":" + std::to_string(com_::getLocalPort(new_sockfd_)) + "\n");
+      reverse_connected_ = true;
+    };
+
+    std::string fun_name_ = "[UrDriver::readRobotStateThread]: ";
+
+		char buf[4096];
+
+		com_::Timeout tm(0,100000);
+		int err_code;
+		int bytes_read;
+
+    #ifdef LOG_TIMES
+  		ur_::Timer timer;
+  		arma::rowvec times_vec(TIME_BUFF_SIZE);
+  		int k = 0;
+    #endif
+
+    PRINT_INFO_MSG("keep_alive_ = " + std::to_string(keep_alive_) + "\n");
+
+		while (keep_alive_ && reverse_connected_)
+		{
+			timer.start();
+
+			bytes_read = com_::read(new_sockfd_, buf, 4096, tm, &err_code);
+
+			if (bytes_read > 0)
+			{
+				com_::setQuickAck(new_sockfd_, true);
+				// std::cerr << "Msg: " << std::string(buf, bytes_read) << "\n";
+				unpackState(buf, bytes_read);
+        update_sem.notify();
+			}
+      else if (bytes_read == 0)
+      {
+        print_warning(fun_name_ + "received 0 bytes...\n");
+        reverse_connected_ = false;
+
+        update_sem.notify();
+
+        reconnect_fun_();
+      }
+			else
+			{
+				if (err_code == EINTR) // ignore "interrupt system call"
+				{
+					print_warning(UrDriver_fun_ + com_::getErrMsg(EINTR));
+					continue;
+				}
+				print_error(fun_name_ + "Error on \"read()\": " + com_::getErrMsg(err_code));
+				// print_info("Realtime port: Is connection lost? Will try to reconnect...\n");
+				reverse_connected_ = false;
+        update_sem.notify(); // notify in all cases to avoid dead locks...
+
+        if (keep_alive_) reconnect_fun_();
+			}
+
+
+      #ifdef LOG_TIMES
+  			times_vec(k++) = timer.elapsedMicroSec();
+      #endif
+		}
+
+    if (reverse_connected_)
+  	{
+      terminate();
+  		//rt_interface_->addCommandToQueue("stopj(10)\n");
+  		reverse_connected_ = false;
+  		close(new_sockfd_);
+      close(incoming_sockfd_);
+      std::this_thread::sleep_for(std::chrono::milliseconds(8));
+  	}
+
+    #ifdef LOG_TIMES
+  		times_vec = times_vec.subvec(6,k-7); // discard some initial/final values which are noisy
+  		double mean_elaps_t = arma::mean(times_vec)/1000;
+  		double std_elaps_t = arma::stddev(times_vec, 1)/1000;
+
+  		std::cerr << "==================================\n";
+  		std::cerr << "readRobotStateThread:\n";
+  		std::cerr << "loop cycle: " << mean_elaps_t << " +/- " << std_elaps_t << " ms\n";
+  		std::cerr << "==================================\n";
+
+  		using namespace as64_::io_;
+  		FileIO fid("loop_times.bin", FileIO::out | FileIO::trunc);
+  		fid.write("elaps_times", times_vec);
+  		fid.close();
+    #endif
+
+	});
+	ur_::makeThreadRT(read_state_thr);
+}
+
+void UrDriver::unpackState(char *buff, int size)
+{
+
+	int i1 = 0;
+	int i2 = 0;
+
+	unpackVector(buff, size, i1, i2, joint_pos);
+	unpackVector(buff, size, i1, i2, joint_vel);
+
+	std::vector<double> tcp_pose(6);
+	unpackVector(buff, size, i1, i2, tcp_pose);
+	unpackVector(buff, size, i1, i2, tcp_vel);
+	tcp_pos = {tcp_pose[0], tcp_pose[1], tcp_pose[2]};
+
+	//tcp orientation as unit quaternion
+	double rx = tcp_pose[3];
+	double ry = tcp_pose[4];
+	double rz = tcp_pose[5];
+	double angle = std::sqrt(std::pow(rx,2) + std::pow(ry,2) + std::pow(rz,2));
+	tcp_quat.resize(4);
+	if (angle < 1e-16) tcp_quat = {1, 0, 0, 0};
+	else
+	{
+		tcp_quat[0] = std::cos(angle/2);
+		double sin_a = std::sin(angle/2);
+		tcp_quat[1] = sin_a*rx/angle;
+		tcp_quat[2] = sin_a*ry/angle;
+		tcp_quat[3] = sin_a*rz/angle;
+	}
+
+	unpackVector(buff, size, i1, i2, joint_torq);
+	unpackVector(buff, size, i1, i2, tcp_wrench);
+}
+
+void UrDriver::unpackVector(char *buff, int size, int &i1, int &i2, std::vector<double> &unpack_to)
+{
+	for (int i=i2; i<size; i++)
+	{
+		if (buff[i] == '[')
+		{
+			i1 = i;
+			break;
+		}
+		if (buff[i] == ',') buff[i] = ' ';
+	}
+
+	for (int i=i1; i<size; i++)
+	{
+		if (buff[i] == ']')
+		{
+			i2 = i;
+			break;
+		}
+		if (buff[i] == ',') buff[i] = ' ';
+	}
+
+	int i0 = i1+1;
+	int len = i2 - i0;
+	std::istringstream iss(std::string(buff+i0,len));
+	unpack_to.resize(6);
+	iss >> unpack_to[0] >> unpack_to[1] >> unpack_to[2] >> unpack_to[3] >> unpack_to[4] >> unpack_to[5];
+}
+
 
 bool UrDriver::start()
 {
@@ -140,11 +328,14 @@ bool UrDriver::start()
 	print_debug("Listening on " + ip_addr_ + ":" + std::to_string(REVERSE_PORT_) + "\n");
 
 	// launch thread for reading the robot's state
-  rt_read_thread_ = std::thread(std::bind(&UrDriver::readRTMsg, this));
+  if (USE_readRTMsg)
+  {
+    rt_read_thread_ = std::thread(std::bind(&UrDriver::readRTMsg, this));
+    int err_code = ur_::makeThreadRT(rt_read_thread_);
+    if (err_code) ur_::PRINT_WARNING_MSG("[UrDriver::start]: Failed to set thread priority! Reason:\n" + ur_::setThreadPriorErrMsg(err_code) + "\n", std::cerr);
+  }
   // mb_read_thread_ = std::thread(std::bind(&UrDriver::readMbMsg, this));
 
-  int err_code = ur_::makeThreadRT(rt_read_thread_);
-  if (err_code) ur_::PRINT_WARNING_MSG("[UrDriver::start]: Failed to set thread priority! Reason:\n" + ur_::setThreadPriorErrMsg(err_code) + "\n", std::cerr);
   // else PRINT_INFO_MSG("[UrDriver::start]: Set thread priority successfully!\n", std::cerr);
 
 	startReverseCom();
@@ -154,134 +345,25 @@ bool UrDriver::start()
 
 void UrDriver::halt()
 {
-  keep_alive_ = false;
+  stopReverseCom();
 	sec_interface_->halt();
 	rt_interface_->halt();
-	close(incoming_sockfd_);
-
   if (rt_read_thread_.joinable()) rt_read_thread_.join();
-}
-
-void UrDriver::setToolVoltage(unsigned int v)
-{
-	char buf[256];
-	sprintf(buf, "sec setOut():\n\tset_tool_voltage(%d)\nend\n", v);
-	rt_interface_->addCommandToQueue(buf);
-	print_debug(buf);
-}
-
-void UrDriver::setFlag(unsigned int n, bool b)
-{
-	char buf[256];
-	sprintf(buf, "sec setOut():\n\tset_flag(%d, %s)\nend\n", n,
-			b ? "True" : "False");
-	rt_interface_->addCommandToQueue(buf);
-	print_debug(buf);
-}
-
-void UrDriver::setDigitalOut(unsigned int n, bool b)
-{
-	char buf[256];
-	if (firmware_version_ < 2) {
-		sprintf(buf, "sec setOut():\n\tset_digital_out(%d, %s)\nend\n", n,
-				b ? "True" : "False");
-    } else if (n > 15) {
-        sprintf(buf,
-                "sec setOut():\n\tset_tool_digital_out(%d, %s)\nend\n",
-                n - 16, b ? "True" : "False");
-	} else if (n > 7) {
-        sprintf(buf, "sec setOut():\n\tset_configurable_digital_out(%d, %s)\nend\n",
-				n - 8, b ? "True" : "False");
-
-	} else {
-		sprintf(buf, "sec setOut():\n\tset_standard_digital_out(%d, %s)\nend\n",
-				n, b ? "True" : "False");
-
-	}
-	rt_interface_->addCommandToQueue(buf);
-	print_debug(buf);
-
-}
-
-void UrDriver::setAnalogOut(unsigned int n, double f)
-{
-	char buf[256];
-	if (firmware_version_ < 2) {
-		sprintf(buf, "sec setOut():\n\tset_analog_out(%d, %1.4f)\nend\n", n, f);
-	} else {
-		sprintf(buf, "sec setOut():\n\tset_standard_analog_out(%d, %1.4f)\nend\n", n, f);
-	}
-
-	rt_interface_->addCommandToQueue(buf);
-	print_debug(buf);
-}
-
-bool UrDriver::setPayload(double m)
-{
-	if ((m < maximum_payload_) && (m > minimum_payload_)) {
-		char buf[256];
-		sprintf(buf, "sec setOut():\n\tset_payload(%1.3f)\nend\n", m);
-		rt_interface_->addCommandToQueue(buf);
-		print_debug(buf);
-		return true;
-	} else
-		return false;
-}
-
-void UrDriver::setMinPayload(double m)
-{
-	if (m > 0) minimum_payload_ = m;
-	else minimum_payload_ = 0;
-}
-
-void UrDriver::setMaxPayload(double m)
-{
-	maximum_payload_ = m;
-}
-
-void UrDriver::setServojTime(double t)
-{
-	if (t > 0.008) servoj_time_ = t;
-	else servoj_time_ = 0.008;
-}
-
-void UrDriver::setServojLookahead(double t)
-{
-	if (t > 0.03)
-	{
-		if (t < 0.2) servoj_lookahead_time_ = t;
-		else servoj_lookahead_time_ = 0.2;
-	}
-	else
-	{
-		servoj_lookahead_time_ = 0.03;
-	}
-}
-
-void UrDriver::setServojGain(double g)
-{
-	if (g > 100) {
-			if (g < 2000) {
-				servoj_gain_ = g;
-			} else {
-				servoj_gain_ = 2000;
-			}
-		} else {
-			servoj_gain_ = 100;
-		}
 }
 
 void UrDriver::readRTMsg()
 {
-  // unsigned long ctrl_cycle = servoj_time_*1e9;
-	// unsigned long ctrl_cycle = 0.001*1e9;
-  // timer.start();
-
-  try
-  {
+  #ifdef LOG_TIMES
+  	ur_::Timer timer;
+  	arma::rowvec times_vec(TIME_BUFF_SIZE);
+  	int k = 0;
+  #endif
 
   while (keep_alive_)
   {
+
+		timer.start();
+
     rt_msg_sem.wait(); // wait for new data to arrive...
 
     t = rt_interface_->robot_state_.getControllerTimer();
@@ -319,6 +401,10 @@ void UrDriver::readRTMsg()
     // tool velocity
     tcp_vel = rt_interface_->robot_state_.getTcpSpeedActual();
 
+    #ifdef LOG_TIMES
+		  times_vec(k++) = timer.elapsedMicroSec();
+    #endif
+
     if (!ur_script_cmd().empty())
     {
       rt_interface_->addCommandToQueue(ur_script_cmd.get());
@@ -328,11 +414,21 @@ void UrDriver::readRTMsg()
     update_sem.notify();
   }
 
-  }
-  catch(std::exception &e)
-  {
-    std::cerr << "ERROR: " << e.what() << "\n";
-  }
+  #ifdef LOG_TIMES
+  	times_vec = times_vec.subvec(6,k-7); // discard some initial/final values which are noisy
+  	double mean_elaps_t = arma::mean(times_vec)/1000;
+  	double std_elaps_t = arma::stddev(times_vec, 1)/1000;
+
+  	std::cerr << "==================================\n";
+  	std::cerr << "readRobotStateThread:\n";
+  	std::cerr << "loop cycle: " << mean_elaps_t << " +/- " << std_elaps_t << " ms\n";
+  	std::cerr << "==================================\n";
+
+  	using namespace as64_::io_;
+  	FileIO fid("loop_times2.bin", FileIO::out | FileIO::trunc);
+  	fid.write("elaps_times", times_vec);
+  	fid.close();
+  #endif
 
 }
 
@@ -420,6 +516,26 @@ void UrDriver::freedrive_mode()
 	const int len = 4;
 	char buff[len];
 	writeInt(buff, FREEDRIVE);
+
+	int n_bytes = ur_::com_::write(new_sockfd_, buff, len, true);
+	if (n_bytes != len) throw std::runtime_error("Error: sent bytes=" + std::to_string(n_bytes) + ", bytes to send=" + std::to_string(len) + "\n");
+}
+
+void UrDriver::idle_mode()
+{
+	const int len = 4;
+	char buff[len];
+	writeInt(buff, IDLE_MODE);
+
+	int n_bytes = ur_::com_::write(new_sockfd_, buff, len, true);
+	if (n_bytes != len) throw std::runtime_error("Error: sent bytes=" + std::to_string(n_bytes) + ", bytes to send=" + std::to_string(len) + "\n");
+}
+
+void UrDriver::terminate()
+{
+	const int len = 4;
+	char buff[len];
+	writeInt(buff, TERMINATE);
 
 	int n_bytes = ur_::com_::write(new_sockfd_, buff, len, true);
 	if (n_bytes != len) throw std::runtime_error("Error: sent bytes=" + std::to_string(n_bytes) + ", bytes to send=" + std::to_string(len) + "\n");

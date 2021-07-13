@@ -30,7 +30,7 @@ void SimRobot::initSimRobot()
   std::function<arma::vec()> zero_wrench_fun = [](){ return arma::vec().zeros(6); };
   setGetExternalWrenchFun(zero_wrench_fun);
   // jState_pub = node.advertise<sensor_msgs::JointState>(pub_state_topic, 1);
-  jState_sub = node.subscribe("/joint_states", 1, &SimRobot::jStateSubCallback, this);
+  // jState_sub = node.subscribe("/joint_states", 1, &SimRobot::jStateSubCallback, this);
   update_time = (unsigned long)(getCtrlCycle()*1e9);
   timer.start();
 }

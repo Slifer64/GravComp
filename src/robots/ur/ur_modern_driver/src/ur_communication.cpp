@@ -45,16 +45,19 @@ void UrCommunication::initPri()
   com_::setNoDelay(pri_sockfd_, true);
   com_::setQuickAck(pri_sockfd_, true);
   com_::setReuseAddr(pri_sockfd_, true);
+  com_::setNonBlocking(pri_sockfd_, true);
 
-	print_debug("Acquire firmware version: Connecting...");
-  com_::connectToServer(pri_sockfd_, host_, pri_port_);
+  print_debug("Acquire firmware version: Connecting...");
+  com_::connectToServer(pri_sockfd_, host_, pri_port_, com_::Timeout(5,0));
 	print_debug("Acquire firmware version: Got connection");
 
   uint8_t buf[512];
-	unsigned int bytes_read;
-	std::string cmd;
-	bzero(buf, 512);
-	bytes_read = read(pri_sockfd_, buf, 512);
+  bzero(buf, 512);
+  int err_code;
+  unsigned int bytes_read = com_::read(pri_sockfd_, (char *)(buf), 512, com_::Timeout(5, 0), &err_code);
+  //bytes_read = read(pri_sockfd_, buf, 512);
+  //print_debug("Primary interface: bytes read: " + std::to_string(bytes_read) + "\n");
+  if (err_code) print_error(UrCom_fun_ + com_::getErrMsg(err_code));
   com_::setQuickAck(pri_sockfd_, true);
 	robot_state_.unpack(buf, bytes_read);
 	// msg_sem_ptr->notify();
@@ -75,10 +78,7 @@ void UrCommunication::initSec()
   com_::setReuseAddr(sec_sockfd_, true);
   com_::setNonBlocking(sec_sockfd_, true);
 
-  struct timeval timeout;
-  timeout.tv_sec = 10;
-  timeout.tv_usec = 0;
-  com_::connectToServer(sec_sockfd_, host_, sec_port_, timeout);
+  com_::connectToServer(sec_sockfd_, host_, sec_port_, com_::Timeout(10,0));
   connected_ = true;
 }
 
@@ -110,9 +110,7 @@ void UrCommunication::run()
 	int bytes_read;
 	bzero(buf, 2048);
 
-  struct timeval timeout;
-  timeout.tv_sec = 0; //do this each loop as selects modifies timeout
-  timeout.tv_usec = 500000; // timeout of 0.5 sec
+  com_::Timeout tm(0, 500000);
 
   int err_code;
 
@@ -122,36 +120,26 @@ void UrCommunication::run()
 	{
 		while (connected_ && keepalive_)
 		{
-      int err_code;
-      com_::WaitResult result = com_::waitForRead(sec_sockfd_, timeout, &err_code);
+      bytes_read = com_::read(sec_sockfd_, (char *)buf, 2048, tm, &err_code);
 
-      if (result == com_::READY)
+      if (bytes_read > 0)
       {
-        bytes_read = ::read(sec_sockfd_, buf, 2048);
-  			if (bytes_read > 0)
-  			{
-          com_::setQuickAck(sec_sockfd_, true);
-  				robot_state_.unpack(buf, bytes_read);
-  				msg_sem_ptr->notify();
-  			}
-  			else
-        {
-          connected_ = false;
-  				robot_state_.setDisconnected();
-          com_::closeSocket(sec_sockfd_);
-  			}
+        com_::setQuickAck(sec_sockfd_, true);
+        robot_state_.unpack(buf, bytes_read);
+        msg_sem_ptr->notify();
       }
-      else // (result != com_::READY)
+      else
       {
-        if (err_code == EINTR)
+        if (err_code == EINTR) // ignore "interrupt system call"
         {
-          print_warning(UrCom_fun_ + "Interrupt by system call...\n");
+          print_warning(UrCom_fun_ + com_::getErrMsg(EINTR));
           continue;
         }
-        if (result == com_::TIMEOUT) print_error(UrCom_fun_ + "Timeout on waitForRead...\n");
-        if (result == com_::ERROR) print_error(UrCom_fun_ + "Error on waitForRead: " + com_::getErrMsg(err_code));
+        print_error(UrCom_fun_ + "Error on \"read()\": " + com_::getErrMsg(err_code));
         print_info("Realtime port: Is connection lost? Will try to reconnect...\n");
         connected_ = false;
+        robot_state_.setDisconnected();
+        com_::closeSocket(sec_sockfd_);
       }
 		}
 

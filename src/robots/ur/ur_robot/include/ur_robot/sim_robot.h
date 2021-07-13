@@ -33,6 +33,7 @@ public:
   arma::mat getJacobian() const override;
   arma::mat getEEJacobian() const override;
   arma::vec getTcpWrench() const override;
+  arma::vec getJointsTorque() const override;
 
   void initJointsPosition(const arma::vec j_pos0);
 
