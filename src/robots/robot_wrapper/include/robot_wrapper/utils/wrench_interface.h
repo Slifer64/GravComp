@@ -28,10 +28,8 @@ public:
   void setToolEstimator(const robo_::ToolEstimator &tool_est_);
 
   void useAtiSensor(const std::string &ati_ip);
-  // virtual void setWrenchBias() { if (ftsensor) ftsensor->setBias(); }
 
-  void biasAtiSensor() { if (ftsensor) ftsensor->setBias(); }
-  virtual void biasRobotSensor() { throw std::runtime_error("[WrenchInterface::biasRobotSensor]: Must be implemented from the corresponding robot...\n"); }
+  void biasFTsensor() { bias_ftsensor_fun(); }
 
   arma::vec getTaskWrench() const
   { return applyFextDeadZone(get_wrench_fun()); }
@@ -48,10 +46,18 @@ public:
 
 protected:
 
+  // get wrench from Robot 
   virtual arma::vec getTaskWrenchFromRobot() const = 0;
-
+  virtual void biasRobotSensor() { throw std::runtime_error("[WrenchInterface::biasRobotSensor]: Must be implemented from the corresponding robot...\n"); }
+  
+  // get wrench from Ati
+  std::shared_ptr<ati::FTSensor> ftsensor;
   arma::vec getTaskWrenchFromAti() const;
+  void biasAtiSensor() { if (ftsensor) ftsensor->setBias(); }
+
+
   std::function<arma::vec()> get_wrench_fun;
+  std::function<void()> bias_ftsensor_fun;
 
   std::function<arma::mat()> get_task_rotmat;
 
@@ -61,7 +67,7 @@ protected:
 
   arma::vec Fext_dead_zone;
 
-  std::shared_ptr<ati::FTSensor> ftsensor;
+ 
 };
 
 } // namespace rw_

@@ -25,6 +25,8 @@ void WrenchInterface::initWrenchInterface(std::function<arma::mat()> getTaskRotm
 
   get_wrench_fun = std::bind(&WrenchInterface::getTaskWrenchFromRobot, this);
 
+  bias_ftsensor_fun = std::bind(&WrenchInterface::biasRobotSensor, this);
+
   std::string params_filename = ros::package::getPath("robot_wrapper") + "/config/params.yaml";
   rw_::XmlParser parser(params_filename);
 
@@ -95,6 +97,7 @@ void WrenchInterface::useAtiSensor(const std::string &ati_ip)
   std::cerr << "=======> F/T sensor initialized successfully!\n";
 
   get_wrench_fun = std::bind(&WrenchInterface::getTaskWrenchFromAti, this);
+  bias_ftsensor_fun = std::bind(&WrenchInterface::biasAtiSensor, this);
 }
 
 arma::vec WrenchInterface::getTaskWrenchFromAti() const
