@@ -171,7 +171,7 @@ void MainWindow::createActions()
 
   bias_FTsensor_act = new QAction(tr("Bias FT-sensor"), this);
   bias_FTsensor_act->setStatusTip(tr("Bias the FT-sensor."));
-  QObject::connect( bias_FTsensor_act, &QAction::triggered, [this](){ grav_comp->biasFTsensor(); } );
+  QObject::connect( bias_FTsensor_act, &QAction::triggered, [this](){ showMsg( grav_comp->biasFTsensor() ); } );
 
   
   view_wrench_act = new QAction(tr("View wrench"), this);
@@ -437,12 +437,12 @@ void MainWindow::updateGUIonSaveData()
 
 void MainWindow::loadTriggered()
 {
-  // load_data_path = QFileDialog::getOpenFileName(this, tr("Load CoM Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
-  // if (load_data_path.empty()) return;
+  load_data_path = QFileDialog::getOpenFileName(this, tr("Load CoM Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
+  if (load_data_path.empty()) return;
 
-  std::string filename;
-  if (!ros::NodeHandle("~").getParam("CoM_filename", filename)) filename="";
-  load_data_path = default_data_path + filename;
+  // std::string filename;
+  // if (!ros::NodeHandle("~").getParam("CoM_filename", filename)) filename="";
+  // load_data_path = default_data_path + filename;
   load_data = true;
   updateGUIonLoadData();
 
@@ -520,10 +520,10 @@ void MainWindow::loadPredefPosesTriggered()
 
 void MainWindow::loadWrenchOrientTriggered()
 {
-  //std::string path = QFileDialog::getOpenFileName(this, tr("Load wrench-orient Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
-  std::string path;
-  if (!ros::NodeHandle("~").getParam("wrench_orient_data_filename", path)) path="";
-  path = default_data_path + path;
+  std::string path = QFileDialog::getOpenFileName(this, tr("Load wrench-orient Data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
+  // std::string path;
+  // if (!ros::NodeHandle("~").getParam("wrench_orient_data_filename", path)) path="";
+  // path = default_data_path + path;
 
   if (path.empty()) return;
 
@@ -560,10 +560,10 @@ void MainWindow::updateGUIonLoadWrenchOrient()
 
 void MainWindow::saveWrenchOrientTriggered()
 {
-  //std::string path = QFileDialog::getSaveFileName(this, tr("Save Recorded wrench-orient data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
-  std::string path;
-  if (!ros::NodeHandle("~").getParam("wrench_orient_data_filename", path)) path="";
-  path = default_data_path + path;
+  std::string path = QFileDialog::getSaveFileName(this, tr("Save Recorded wrench-orient data"), default_data_path.c_str(), "YAML files (*.yaml);;Text files (*.txt);;Binary files (*.bin)").toStdString();
+  // std::string path;
+  // if (!ros::NodeHandle("~").getParam("wrench_orient_data_filename", path)) path="";
+  // path = default_data_path + path;
 
   if (path.empty()) return;
 
