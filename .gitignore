@@ -2,6 +2,8 @@
 ## matlab
 ##---------------------------------------------------
 
+.vscode/
+
 # ignore logged *.bin and *.txt *.dat and *.mat files
 #data/*.bin
 #data/*.txt
