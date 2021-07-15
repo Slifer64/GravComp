@@ -50,15 +50,16 @@ void WrenchInterface::initWrenchInterface(std::function<arma::mat()> getTaskRotm
   if (!parser.getParam("Fext_dead_zone", Fext_dead_zone)) Fext_dead_zone = arma::vec().zeros(6);
 
   std::string tool_massCoM_file;
-  if (parser.getParam("tool_massCoM_file", tool_massCoM_file))
-    this->setToolEstimator(ros::package::getPath("robot_wrapper") + "/config/" + tool_massCoM_file);
+  if (parser.getParam("tool_massCoM_file", tool_massCoM_file)) this->setToolEstimator(ros::package::getPath("robot_wrapper") + "/config/" + tool_massCoM_file);
 }
 
 
 arma::vec WrenchInterface::getCompTaskWrench() const
 {
   arma::mat R = get_task_rotmat();
+
   arma::vec tool_wrench = tool_estimator->getToolWrench(R);
+
   tool_wrench.subvec(0,2) = R*tool_wrench.subvec(0,2);
   tool_wrench.subvec(3,5) = R*tool_wrench.subvec(3,5);
 

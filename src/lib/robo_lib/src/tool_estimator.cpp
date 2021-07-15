@@ -156,6 +156,7 @@ arma::vec ToolEstimator::getToolWrench(const arma::mat &Rotm_base_tool) const
   arma::vec wrench(6);
   wrench.subvec(0,2) = Rotm_base_tool.t() * (g * this->getMass());
   wrench.subvec(3,5) = arma::cross( this->getCoM(true), wrench.subvec(0,2));
+
   return wrench;
 }
 

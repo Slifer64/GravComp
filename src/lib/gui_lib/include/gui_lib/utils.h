@@ -26,7 +26,7 @@ private:
     QSize size_hint;
 };
 
-void launchGui(std::function<QMainWindow *()> create_mainwin_fun_, bool *gui_finished, int thr_priority=QThread::LowestPriority);
+void launchGui(std::function<QMainWindow *()> create_mainwin_fun_, bool *gui_finished, int thr_priority=QThread::LowestPriority, std::function<void()>cookie_fun=nullptr);
 
 } // namespace gui_
 

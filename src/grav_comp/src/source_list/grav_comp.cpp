@@ -55,14 +55,14 @@ GravComp::GravComp()
   // }
 
   // =======  Tool compensation  =======
-  // std::string tool_massCoM_file;
-  // std::string tool_param_name = "tool_massCoM_file";
-  // if (use_sim) tool_param_name = "dummy_tool_massCoM_file";
-  // if (nh.getParam(tool_param_name.c_str(), tool_massCoM_file))
-  // {
-  //   tool_massCoM_file = ros::package::getPath("grav_comp") + "/" + tool_massCoM_file;
-  //   robot->setToolEstimator(tool_massCoM_file);
-  // }
+  std::string tool_massCoM_file;
+  std::string tool_param_name = "tool_massCoM_file";
+  if (use_sim) tool_param_name = "dummy_tool_massCoM_file";
+  if (nh.getParam(tool_param_name.c_str(), tool_massCoM_file))
+  {
+    tool_massCoM_file = ros::package::getPath("grav_comp") + "/" + tool_massCoM_file;
+    robot->setToolEstimator(tool_massCoM_file);
+  }
 
   // =======  Robot ee tf publisher  =======
   std::string base_link;
@@ -75,6 +75,8 @@ GravComp::GravComp()
 
   // =======  register signal SIGINT and signal handler  =======
   signal(SIGINT, GravComp::closeGUI);
+
+  // std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 }
 
 GravComp::~GravComp()

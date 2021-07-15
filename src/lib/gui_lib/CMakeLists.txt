@@ -51,6 +51,9 @@ add_library(${PROJECT_NAME}
 
   include/${PROJECT_NAME}/view_pose_dialog.h
   src/view_pose_dialog.cpp
+
+  include/${PROJECT_NAME}/label_lineEdit.h
+  src/label_lineEdit.cpp
 )
 
 add_dependencies(${PROJECT_NAME}

@@ -31,15 +31,10 @@ MainWindow::MainWindow(const rw_::Robot *robot, GravComp *grav_comp, QWidget *pa
   this->setCentralWidget(central_widget);
 
   // ====================================
-
   createWidgets();
-
   createLayouts();
-
   createActions();
-
   createMenus();
-
   createConnections();
 
   calc_CoM = false;
@@ -283,13 +278,22 @@ void MainWindow::createWidgets()
 
   view_wrench_dialog = new gui_::ViewWrenchDialog(std::bind(&rw_::Robot::getTaskWrench, robot), std::bind(&rw_::Robot::getTaskRotMat, robot), this);
   view_wrench_dialog->setTitle("Tool wrench");
+
   view_compWrench_dialog = new gui_::ViewWrenchDialog(std::bind(&rw_::Robot::getCompTaskWrench, robot), std::bind(&rw_::Robot::getTaskRotMat, robot), this);
   view_compWrench_dialog->setTitle("Compensated Tool wrench");
-  view_pose_dialog = new gui_::ViewPoseDialog( [this](){ return arma::join_vert(robot->getTaskPosition(), robot->getTaskOrientation());}, this);
+
+  auto getTaskPoseFun = [this]()
+  {
+    arma::vec pose = arma::join_vert(robot->getTaskPosition(), robot->getTaskOrientation());
+    return pose;
+  };
+  view_pose_dialog = new gui_::ViewPoseDialog( getTaskPoseFun, this);
   view_pose_dialog->setTitle("Tool pose");
+
   view_jpos_dialog = new gui_::ViewJPosDialog(robot->getJointPosLowLim(), robot->getJointPosUpperLim(), std::bind(&rw_::Robot::getJointsPosition, robot), this);
   view_jpos_dialog->setJointNames(robot->getJointNames());
   view_jpos_dialog->setTitle("Robot joints position");
+  
   set_poses_dialog = new SetPosesDialog(robot->getNumOfJoints(), this);
 
   mode_label = new QLabel;
