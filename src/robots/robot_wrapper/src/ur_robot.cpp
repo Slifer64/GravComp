@@ -334,4 +334,17 @@ void Ur_Robot::stop()
   setMode(STOPPED);
 }
 
+arma::vec Ur_Robot::getTaskWrenchFromRobot() const
+  { 
+    arma::vec Fext = robot->getSensorWrench();
+
+    Fext = transferWrenchFromSensorToTool(Fext);
+
+    // express tool wrench w.r.t. base frame 
+    arma::mat R = get_task_rotmat();
+    Fext.subvec(0,2) = R*Fext.subvec(0,2);
+    Fext.subvec(3,5) = R*Fext.subvec(3,5);
+    return Fext;
+  }
+
 } // namespace rw_

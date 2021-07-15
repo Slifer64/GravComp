@@ -62,8 +62,7 @@ private:
 
   void setRobotIdle() override { robot->setNormalMode(); }
 
-  arma::vec getTaskWrenchFromRobot() const override
-  { return robot->getTcpWrench(); }
+  arma::vec getTaskWrenchFromRobot() const override;
 
   std::shared_ptr<ur_::Robot> robot;
   // void *robot;
