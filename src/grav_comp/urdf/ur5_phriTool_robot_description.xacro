@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<robot name="robot_ur5_kol" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<!-- ur5 -->
+<!-- <xacro:include filename="$(find ur_description)/urdf/ur5.urdf.xacro" /> -->
+<xacro:include filename="$(find ur_e_description)/urdf/ur5e.urdf.xacro" />
+
+
+<!-- =============  Base-link  ============= -->
+<link name="world" />
+<link name="base_link" />
+
+<joint name="world_base_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="world"/>
+    <child link="base_link"/>
+</joint>
+
+<!-- =============  ur5  ============= -->
+<property name="robot_name" value="ur5"/>
+<xacro:ur5e_robot prefix="${robot_name}_" joint_limited="false"/>
+
+<joint name="${robot_name}_base_joint" type="fixed">
+  <parent link="base_link" />
+  <child link = "${robot_name}_base_link" />
+  <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0" />
+</joint>
+
+<!-- ===============   phri tool  =================-->
+<link name="phri_tool">
+    <visual>
+        <geometry>
+            <mesh filename="package://grav_comp/meshes/phri_handle.dae"/>
+        </geometry>
+    </visual>
+</link>
+
+<joint name="phriTool_ati_joint" type="fixed">
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    <parent link="${robot_name}_tool0"/>
+    <child link="phri_tool"/>
+</joint>
+
+
+<!-- ===============  sensor link  =================-->
+<link name="ftsensor_link"/>
+
+<joint name="${robot_name}_ftsensor_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="${robot_name}_tool0"/>
+    <child link="ftsensor_link"/>
+</joint>
+
+
+<!-- ===============  ee link  =================-->
+<link name="ee_link"/>
+
+<joint name="${robot_name}_ee_joint" type="fixed">
+    <origin xyz="0 0 0.12" rpy="0 0 0"/>
+    <parent link="${robot_name}_tool0"/>
+    <child link="ee_link"/>
+</joint>
+
+
+</robot>

@@ -13,7 +13,7 @@
   <arg name="publish_jstates_topic" default="/robot_joint_states"/>
 
   <!-- robot model -->
-  <param name="robot_description" command="$(find xacro)/xacro.py '$(find grav_comp)/urdf/ur5_robot.urdf.xacro' limited:=false" />
+  <param name="my_robot_description" command="$(find xacro)/xacro.py '$(find grav_comp)/urdf/ur5_phriTool_robot_description.xacro'" />
 
   <node name="rviz" pkg="rviz" type="rviz" respawn="false" args="-d $(find grav_comp)/rviz/ur_test.rviz" output="screen" required="true"/>
 
@@ -36,9 +36,10 @@
 
       ee_tool_rot: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 
-      robot_description_name: "/robot_description"
-      base_link: "ur5_base_link"
+      robot_description_name: "/my_robot_description"
+      base_link: "base_link"
       tool_link: "ee_link"
+      ftsensor_link: "ftsensor_link"
     </rosparam>
 
   </node>

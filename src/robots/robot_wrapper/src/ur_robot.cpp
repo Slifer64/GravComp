@@ -4,6 +4,8 @@
 #include <ros/package.h>
 #include <robot_wrapper/utils/xml_parser.h>
 
+#include <robo_lib/kinematic_chain.h>
+
 namespace rw_
 {
 
@@ -15,12 +17,14 @@ Ur_Robot::Ur_Robot(bool use_sim)
   std::string robot_desc;
   std::string base_link;
   std::string tool_link;
+  std::string ftsensor_link;
   std::string robot_ip;
   std::string host_ip;
   int reverse_port;
   if (!nh.getParam("robot_description_name",robot_desc)) throw std::ios_base::failure(Ur_Robot_fun_ + "Failed to read parameter \"robot_description_name\".");
   if (!nh.getParam("base_link",base_link)) throw std::ios_base::failure(Ur_Robot_fun_ + "Failed to read parameter \"base_link\".");
   if (!nh.getParam("tool_link",tool_link)) throw std::ios_base::failure(Ur_Robot_fun_ + "Failed to read parameter \"tool_link\".");
+  if (!nh.getParam("ftsensor_link",ftsensor_link)) ftsensor_link = tool_link;
 
   if (use_sim) robot_ip = "127.0.0.1";
   else if (!nh.getParam("robot_ip",robot_ip)) throw std::ios_base::failure(Ur_Robot_fun_ + "Failed to read parameter \"robot_ip\".");
@@ -56,6 +60,23 @@ Ur_Robot::Ur_Robot(bool use_sim)
   robot.reset(new ur_::Robot(robot_desc, base_link, tool_link, host_ip, robot_ip, reverse_port));
 
   std::cerr << "=======> ur-robot created successfully!\n";
+
+  robo_::KinematicChain base_sensor_chain = robo_::KinematicChain(robot_desc, base_link, ftsensor_link);
+  arma::mat T_base_sensor = base_sensor_chain.getTaskPose( arma::vec().zeros( base_sensor_chain.getNumJoints() ) );
+
+
+  robo_::KinematicChain base_tool_chain = robo_::KinematicChain(robot_desc, base_link, tool_link);
+  arma::mat T_base_tool = base_tool_chain.getTaskPose( arma::vec().zeros( base_tool_chain.getNumJoints() ) );
+
+  arma::mat T_sensor_tool = arma::inv(T_base_sensor) * T_base_tool;
+  arma::mat R_sensor_tool = T_sensor_tool.submat(0,0,2,2);
+  arma::vec p_sensor_tool = T_sensor_tool.submat(0,3,2,3);
+
+  std::cerr << "================================================\n";
+  std::cerr << "R_sensor_tool = \n" << R_sensor_tool << "\n";
+  std::cerr << "p_sensor_tool = \n" << p_sensor_tool.t() << "\n";
+  std::cerr << "================================================\n";
+
 
   initWrenchInterface(std::bind(&Ur_Robot::getTaskRotMat,this));
   initInvKinematicsInterface();

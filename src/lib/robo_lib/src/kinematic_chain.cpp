@@ -113,7 +113,10 @@ void KinematicChain::init()
       effort_lim.push_back(joint->limits->effort);
       joint_vel_lim.push_back(joint->limits->velocity);
     }
+    
   }
+
+  N_JOINTS = joint_pos_lower_lim.size();
 
   // create KDL::Chain and forward/inverse kinematics and Jacobian solvers
   //KDL::Tree tree;
