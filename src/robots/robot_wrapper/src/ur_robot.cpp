@@ -78,7 +78,7 @@ Ur_Robot::Ur_Robot(bool use_sim)
   std::cerr << "================================================\n";
 
 
-  initWrenchInterface(std::bind(&Ur_Robot::getTaskRotMat,this));
+  initWrenchInterface(std::bind(&Ur_Robot::getTaskRotMat,this), T_sensor_tool);
   initInvKinematicsInterface();
 
   // std::vector<std::string> joint_names = {"shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint"};

@@ -35,7 +35,22 @@ MainWindow::MainWindow(const rw_::Robot *robot, GravComp *grav_comp, QWidget *pa
   createLayouts();
   createActions();
   createMenus();
-  createConnections();
+  
+  qRegisterMetaType<ExecResultMsg>("ExecResultMsg");
+
+  QObject::connect( this, &MainWindow::robotNotOkSignal, this, &MainWindow::robotNotOkSlot );
+  QObject::connect( this, &MainWindow::modeChangedSignal, this, &MainWindow::modeChangedSlot );
+  QObject::connect( this, &MainWindow::emergencyStopAckSignal, this, &MainWindow::emergencyStopAckSlot );
+  QObject::connect( this, &MainWindow::calcCoMAckSignal, this, &MainWindow::calcCoMAckSlot );
+  QObject::connect( this, &MainWindow::clearWrenchQuatDataAckSignal, this, &MainWindow::clearWrenchQuatDataAckSlot );
+  QObject::connect( this, &MainWindow::loadAckSignal, this, &MainWindow::loadAckSlot );
+  QObject::connect( this, &MainWindow::saveAckSignal, this, &MainWindow::saveAckSlot );
+  QObject::connect( this, &MainWindow::loadWrenchOrientAckSignal, this, &MainWindow::loadWrenchOrientAckSlot );
+  QObject::connect( this, &MainWindow::saveWrenchOrientAckSignal, this, &MainWindow::saveWrenchOrientAckSlot );
+  QObject::connect( this, &MainWindow::recWrenchQuatAckSignal, this, &MainWindow::recWrenchQuatAckSlot );
+  QObject::connect( this, &MainWindow::recPredefPosesAckSignal, this, &MainWindow::recPredefPosesAckSlot );
+
+  QObject::connect( this, SIGNAL(closeSignal()), this, SLOT(close()) );
 
   calc_CoM = false;
   clear_WrenchQuat_data = false;
@@ -57,9 +72,7 @@ MainWindow::MainWindow(const rw_::Robot *robot, GravComp *grav_comp, QWidget *pa
 }
 
 MainWindow::~MainWindow()
-{
-
-}
+{ }
 
 // ========================     MODE    ==================================
 
@@ -125,90 +138,57 @@ void MainWindow::createActions()
 {
   load_predef_poses_act = new QAction(tr("Load predefined poses"), this);
   load_predef_poses_act->setStatusTip(tr("Loads predefined poses from a path specified by the user."));
+  QObject::connect( load_predef_poses_act, &QAction::triggered, this, &MainWindow::loadPredefPosesTriggered );
 
   load_wrenchOrient_act = new QAction(tr("&Load wrench-orient data..."), this);
   load_wrenchOrient_act->setShortcut(QKeySequence("Ctrl+D+L"));
   load_wrenchOrient_act->setStatusTip(tr("Loads the wrench-orient data from the file the user specifies."));
-
+  QObject::connect( load_wrenchOrient_act, &QAction::triggered, this, &MainWindow::loadWrenchOrientTriggered );
+  
   save_wrenchOrient_act = new QAction(tr("&Save wrench-orient data..."), this);
   save_wrenchOrient_act->setShortcut(QKeySequence("Ctrl+D+S"));
   save_wrenchOrient_act->setStatusTip(tr("Saves the recorded wrench-orient data to the file specified by the user."));
+  QObject::connect( save_wrenchOrient_act, &QAction::triggered, this, &MainWindow::saveWrenchOrientTriggered );
 
   load_CoM_act = new QAction(tr("&Load CoM data..."), this);
   load_CoM_act->setShortcut(QKeySequence("Ctrl+L"));
   load_CoM_act->setStatusTip(tr("Loads the CoM data from the file the user specifies."));
+  QObject::connect( load_CoM_act, &QAction::triggered, this, &MainWindow::loadTriggered );
 
   save_act = new QAction(tr("&Save CoM data"), this);
   save_act->setShortcut(QKeySequence("Ctrl+S"));
   save_act->setStatusTip(tr("Saves the CoM data to default location."));
+  QObject::connect( save_act, &QAction::triggered, this, &MainWindow::saveTriggered );
 
   save_as_act = new QAction(tr("Save CoM data as..."), this);
   save_as_act->setShortcut(QKeySequence("Shift+Ctrl+S"));
   save_as_act->setStatusTip(tr("Saves the CoM data to a user specified path."));
-
+  QObject::connect( save_as_act, &QAction::triggered, this, &MainWindow::saveAsTriggered );
 
   set_predef_poses_act = new QAction(tr("Set predefined poses"), this);
   set_predef_poses_act->setStatusTip(tr("Opens a dialog where you can insert/remove poses at which to record wrench-orient."));
+  QObject::connect( set_predef_poses_act, &QAction::triggered, [this](){ this->set_poses_dialog->launch(); } );
 
+  bias_FTsensor_act = new QAction(tr("Bias FT-sensor"), this);
+  bias_FTsensor_act->setStatusTip(tr("Bias the FT-sensor."));
+  QObject::connect( bias_FTsensor_act, &QAction::triggered, [this](){ grav_comp->biasFTsensor(); } );
+
+  
   view_wrench_act = new QAction(tr("View wrench"), this);
   view_wrench_act->setStatusTip(tr("Opens a window displaying the tool wrench."));
+  QObject::connect( view_wrench_act, &QAction::triggered, [this](){ this->view_wrench_dialog->launch(); } );
 
   view_compWrench_act = new QAction(tr("View compensated wrench"), this);
   view_compWrench_act->setStatusTip(tr("Opens a window displaying the compensated tool wrench."));
+  QObject::connect( view_compWrench_act, &QAction::triggered, [this](){ this->view_compWrench_dialog->launch(); } );
 
   view_pose_act = new QAction(tr("View pose"), this);
   view_pose_act->setStatusTip(tr("Opens a window displaying the robot's end-effector pose."));
+  QObject::connect( view_pose_act, &QAction::triggered, [this](){ this->view_pose_dialog->launch();} );
 
   view_joints_act = new QAction(tr("View joints"), this);
   view_joints_act->setStatusTip(tr("Opens a window with sliders displaying the robot's joints position."));
-}
-
-void MainWindow::createConnections()
-{
-  QObject::connect( load_predef_poses_act, &QAction::triggered, this, &MainWindow::loadPredefPosesTriggered );
-
-  QObject::connect( load_wrenchOrient_act, &QAction::triggered, this, &MainWindow::loadWrenchOrientTriggered );
-  QObject::connect( save_wrenchOrient_act, &QAction::triggered, this, &MainWindow::saveWrenchOrientTriggered );
-
-  QObject::connect( load_CoM_act, &QAction::triggered, this, &MainWindow::loadTriggered );
-
-  QObject::connect( save_act, &QAction::triggered, this, &MainWindow::saveTriggered );
-  QObject::connect( save_as_act, &QAction::triggered, this, &MainWindow::saveAsTriggered );
-
-  QObject::connect( set_predef_poses_act, &QAction::triggered, [this](){ this->set_poses_dialog->launch(); } );
-
-  QObject::connect( view_wrench_act, &QAction::triggered, [this](){ this->view_wrench_dialog->launch(); } );
-  QObject::connect( view_compWrench_act, &QAction::triggered, [this](){ this->view_compWrench_dialog->launch(); } );
-
-  QObject::connect( view_pose_act, &QAction::triggered, [this](){ this->view_pose_dialog->launch();} );
-
   QObject::connect( view_joints_act, &QAction::triggered, [this](){ this->view_jpos_dialog->launch(); } );
-
-  QObject::connect( freedrive_btn, &QPushButton::clicked, [this](){ this->setMode(FREEDRIVE);} );
-  QObject::connect( idle_btn, &QPushButton::clicked, [this](){ this->setMode(IDLE);} );
-
-  QObject::connect( calc_CoM_btn, &QPushButton::clicked, this, &MainWindow::calcCoMPressed );
-  QObject::connect( rec_wrenchQuat_btn, &QPushButton::clicked, this, &MainWindow::recWrenchQuatPressed );
-  QObject::connect( rec_predef_poses_btn, &QPushButton::clicked, this, &MainWindow::recPredefPosesPressed );
-  QObject::connect( clear_wrenchQuat_btn, &QPushButton::clicked, this, &MainWindow::clearWrenchQuatDataPressed );
-
-  QObject::connect( emergency_stop_btn, &QPushButton::clicked, this, &MainWindow::emergencyStopPressed);
-
-  qRegisterMetaType<ExecResultMsg>("ExecResultMsg");
-
-  QObject::connect( this, &MainWindow::robotNotOkSignal, this, &MainWindow::robotNotOkSlot );
-  QObject::connect( this, &MainWindow::modeChangedSignal, this, &MainWindow::modeChangedSlot );
-  QObject::connect( this, &MainWindow::emergencyStopAckSignal, this, &MainWindow::emergencyStopAckSlot );
-  QObject::connect( this, &MainWindow::calcCoMAckSignal, this, &MainWindow::calcCoMAckSlot );
-  QObject::connect( this, &MainWindow::clearWrenchQuatDataAckSignal, this, &MainWindow::clearWrenchQuatDataAckSlot );
-  QObject::connect( this, &MainWindow::loadAckSignal, this, &MainWindow::loadAckSlot );
-  QObject::connect( this, &MainWindow::saveAckSignal, this, &MainWindow::saveAckSlot );
-  QObject::connect( this, &MainWindow::loadWrenchOrientAckSignal, this, &MainWindow::loadWrenchOrientAckSlot );
-  QObject::connect( this, &MainWindow::saveWrenchOrientAckSignal, this, &MainWindow::saveWrenchOrientAckSlot );
-  QObject::connect( this, &MainWindow::recWrenchQuatAckSignal, this, &MainWindow::recWrenchQuatAckSlot );
-  QObject::connect( this, &MainWindow::recPredefPosesAckSignal, this, &MainWindow::recPredefPosesAckSlot );
-
-  QObject::connect( this, SIGNAL(closeSignal()), this, SLOT(close()) );
 }
 
 void MainWindow::createMenus()
@@ -228,6 +208,7 @@ void MainWindow::createMenus()
 
   edit_menu = menu_bar->addMenu(tr("&Edit"));
   edit_menu->addAction(set_predef_poses_act);
+  edit_menu->addAction(bias_FTsensor_act);
 
   view_menu = menu_bar->addMenu(tr("&View"));
   view_menu->addAction(view_pose_act);
@@ -306,12 +287,14 @@ void MainWindow::createWidgets()
   freedrive_btn = new QPushButton;
   freedrive_btn->setText("FREEDRIVE");
   freedrive_btn->setFont(QFont("Ubuntu", 13, QFont::DemiBold));
+  QObject::connect( freedrive_btn, &QPushButton::clicked, [this](){ this->setMode(FREEDRIVE);} );
 
   idle_btn = new QPushButton;
   idle_btn->setText("IDLE");
   idle_btn->setFont(QFont("Ubuntu", 13, QFont::DemiBold));
+  QObject::connect( idle_btn, &QPushButton::clicked, [this](){ this->setMode(IDLE);} );
 
-
+  
   // ===============================
 
   emergency_stop_btn = new QPushButton;
@@ -321,22 +304,27 @@ void MainWindow::createWidgets()
   emergency_stop_btn->setIconSize(QSize(50,50));
   emergency_stop_btn->setStyleSheet("color:rgb(255,0,0); background-color:rgba(200, 200, 200, 100);");
   emergency_stop_btn->setFont(QFont("Ubuntu",13,QFont::DemiBold));
+  QObject::connect( emergency_stop_btn, &QPushButton::clicked, this, &MainWindow::emergencyStopPressed);
 
   calc_CoM_btn = new QPushButton;
   calc_CoM_btn->setText("Calculate CoM");
   calc_CoM_btn->setFont(font1);
+  QObject::connect( calc_CoM_btn, &QPushButton::clicked, this, &MainWindow::calcCoMPressed );
 
   rec_predef_poses_btn = new QPushButton;
   rec_predef_poses_btn->setText("Record predefined poses");
   rec_predef_poses_btn->setFont(font1);
-
+  QObject::connect( rec_predef_poses_btn, &QPushButton::clicked, this, &MainWindow::recPredefPosesPressed );
+  
   rec_wrenchQuat_btn = new QPushButton;
   rec_wrenchQuat_btn->setText("record wrench-orient");
   rec_wrenchQuat_btn->setFont(font1);
+  QObject::connect( rec_wrenchQuat_btn, &QPushButton::clicked, this, &MainWindow::recWrenchQuatPressed );
 
   clear_wrenchQuat_btn = new QPushButton;
   clear_wrenchQuat_btn->setText("clear wrench-orient data");
   clear_wrenchQuat_btn->setFont(font1);
+  QObject::connect( clear_wrenchQuat_btn, &QPushButton::clicked, this, &MainWindow::clearWrenchQuatDataPressed );
 }
 
 void MainWindow::createLayouts()

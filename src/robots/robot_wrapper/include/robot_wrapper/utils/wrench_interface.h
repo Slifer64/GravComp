@@ -22,7 +22,7 @@ public:
   WrenchInterface();
   ~WrenchInterface();
 
-  void initWrenchInterface(std::function<arma::mat()> getTaskRotm);
+  void initWrenchInterface(std::function<arma::mat()> getTaskRotm, const arma::mat &T_sensor_tool = arma::mat().eye(4,4));
 
   void setToolEstimator(const std::string &tool_massCoM_file);
   void setToolEstimator(const robo_::ToolEstimator &tool_est_);
@@ -67,6 +67,9 @@ protected:
 
   arma::vec Fext_dead_zone;
 
+  arma::mat R_tool_sensor;
+  arma::vec p_tool_sensor;
+  arma::vec transferWrenchFromSensorToTool(const arma::vec &F_sensor) const;
  
 };
 

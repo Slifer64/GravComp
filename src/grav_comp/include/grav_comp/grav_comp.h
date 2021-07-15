@@ -33,6 +33,8 @@ public:
   ExecResultMsg recordCurrentWrenchQuat();
   ExecResultMsg clearWrenchQuatData();
 
+  void biasFTsensor() { robot->biasFTsensor(); }
+
   ExecResultMsg calcCoM();
   ExecResultMsg loadCoMData(const std::string &path);
   ExecResultMsg saveCoMData(const std::string &save_path);

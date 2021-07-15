@@ -145,11 +145,14 @@ private:
   QAction *load_CoM_act; ///< Triggers a QAction connected with the execution of the mass-CoM load.
   QAction *save_act; ///< Triggers a QAction connected with the execution of the mass-CoM save.
   QAction *save_as_act; ///< Triggers a QAction connected with the execution of the mass-CoM save as.
+  // -------------------------------------------------------
+  QAction *set_predef_poses_act; ///< Triggers a QAction connected with the launch of 'set_predef_poses_dialog'.
+  QAction *bias_FTsensor_act;
+  // -------------------------------------------------------
   QAction *view_pose_act; ///< Triggers a QAction connected with the launch of 'view_pose_dialog'.
   QAction *view_joints_act; ///< Triggers a QAction connected with the launch of 'view_jpos_dialog'.
   QAction *view_wrench_act; ///< Triggers a QAction connected with the launch of 'view_wrench_dialog'.
   QAction *view_compWrench_act;
-  QAction *set_predef_poses_act; ///< Triggers a QAction connected with the launch of 'set_predef_poses_dialog'.
   QAction *view_ee_tf_act;
   QAction *view_CoM_tf_act;
 
@@ -178,10 +181,6 @@ private:
 
   /** Creates the layouts and assigns the widgets to the corresponding layout. */
   void createLayouts();
-
-  /** Sets up the connections between widget/action signals (i.e. clicked/triggered) and
-  the corresponding functions (slots) that handle the signals. */
-  void createConnections();
 
   /** Creates the QActions that will be stored in the menus. */
   void createActions();
