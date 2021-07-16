@@ -55,6 +55,37 @@ ViewWrenchDialog::ViewWrenchDialog(std::function<arma::vec()> readWrench, std::f
   ref_frame_layout->addWidget(ref_frame_cmbx);
   ref_frame_layout->addStretch(0);
 
+
+  QLabel *refresh_rate_lb = new QLabel("refresh:");
+  refresh_rate_lb->setStyleSheet("font: 75 14pt;");
+  QLineEdit *refresh_rate_le = new QLineEdit(QString::number(up_rate_ms_));
+  refresh_rate_le->setStyleSheet("font: 75 14pt;");
+  refresh_rate_le->setAlignment(Qt::AlignCenter);
+  refresh_rate_le->setMaxLength(5);
+  //refresh_rate_le->setSizeHint(50,30);
+  refresh_rate_le->setMaximumSize(QSize(60,30));
+  QObject::connect(refresh_rate_le, &QLineEdit::editingFinished, this, [this,refresh_rate_le]()
+  {
+    this->up_rate_ms_ = static_cast<unsigned>(refresh_rate_le->text().toDouble());
+    refresh_rate_le->setText(QString::number(this->up_rate_ms_));
+  });
+  QLabel *refresh_rate_units_lb = new QLabel("ms");
+  refresh_rate_units_lb->setStyleSheet("font: 75 14pt;");
+
+  QHBoxLayout *refresh_rate_layout = new QHBoxLayout;
+  ref_frame_layout->addSpacing(30);
+  ref_frame_layout->addWidget(refresh_rate_lb);
+  ref_frame_layout->addWidget(refresh_rate_le);
+  ref_frame_layout->addWidget(refresh_rate_units_lb);
+  ref_frame_layout->addStretch(0);
+
+  QHBoxLayout *temp_layout_1 = new QHBoxLayout;
+  temp_layout_1->addLayout(ref_frame_layout);
+  temp_layout_1->addLayout(refresh_rate_layout);
+  temp_layout_1->addStretch(0);
+
+  // -------------------------------------------------------
+
   QGridLayout *wrench_layout = new QGridLayout;
   // main_layout->setSizeConstraint(QLayout::SetFixedSize);
   wrench_layout->addWidget(x_label,0,1, Qt::AlignCenter);
@@ -72,8 +103,10 @@ ViewWrenchDialog::ViewWrenchDialog(std::function<arma::vec()> readWrench, std::f
   wrench_layout->addWidget(tz_le,3,3);
   wrench_layout->addWidget(t_label,3,4);
 
+  // -------------------------------------------------------
+
   QVBoxLayout *main_layout = new QVBoxLayout(this);
-  main_layout->addLayout(ref_frame_layout);
+  main_layout->addLayout(temp_layout_1);
   main_layout->addLayout(wrench_layout);
 
   Qt::ConnectionType connect_type = Qt::AutoConnection;
