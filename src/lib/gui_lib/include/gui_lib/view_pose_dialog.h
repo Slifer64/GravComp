@@ -31,7 +31,10 @@ public:
 
   void setTitle(const std::string &title_) { this->setWindowTitle(title_.c_str()); }
 
-  void setUpdateRate(unsigned up_rate_ms) { up_rate_ms_ = up_rate_ms; }
+  void setUpdateRate(unsigned up_rate_ms) { up_rate_ms_ = up_rate_ms;  emit updateRateChangedSignal(); }
+
+signals:
+  void updateRateChangedSignal();
 
 public slots:
   void launch();
@@ -47,7 +50,7 @@ private:
   MyLineEdit *qz_le;
 
   unsigned up_rate_ms_;
-  
+
   bool run;
   std::function<arma::vec()> get_pose_fun_;
 

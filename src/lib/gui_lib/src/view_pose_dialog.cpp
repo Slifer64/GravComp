@@ -17,6 +17,7 @@ ViewPoseDialog::ViewPoseDialog(std::function<arma::vec()> getPose, QWidget *pare
 
   this->setWindowTitle("Pose");
 
+  // ============  Pose widgets  ================
   QLabel *pos_label = new QLabel("Position");
   pos_label->setStyleSheet("background-color: rgb(245,245,245); color: rgb(0,0,0); font: 75 14pt \"FreeSans\";");
   QLabel *x_label = new QLabel("x");
@@ -38,37 +39,62 @@ ViewPoseDialog::ViewPoseDialog(std::function<arma::vec()> getPose, QWidget *pare
   qy_le = createLineEdit();
   qz_le = createLineEdit();
 
-  QGridLayout *main_layout = new QGridLayout(this);
+  // ============  Pose layout  ================
+  QGridLayout *pose_layout = new QGridLayout;
+    pose_layout->addWidget(x_label,0,1, Qt::AlignCenter);
+    pose_layout->addWidget(y_label,0,2, Qt::AlignCenter);
+    pose_layout->addWidget(z_label,0,3, Qt::AlignCenter);
+    pose_layout->addWidget(pos_label,1,0, Qt::AlignCenter);
+    pose_layout->addWidget(x_le,1,1);
+    pose_layout->addWidget(y_le,1,2);
+    pose_layout->addWidget(z_le,1,3);
+    pose_layout->addWidget(m_label,1,4);
+    pose_layout->addItem(new QSpacerItem(0,20),2,0);
+    pose_layout->addWidget(orient_label,3,0,2,1, Qt::AlignCenter);
+    pose_layout->addWidget(scalar_label,3,1, Qt::AlignCenter);
+    pose_layout->addWidget(vector_label,3,2,1,3, Qt::AlignCenter);
+    pose_layout->addWidget(qw_le,4,1);
+    pose_layout->addWidget(qx_le,4,2);
+    pose_layout->addWidget(qy_le,4,3);
+    pose_layout->addWidget(qz_le,4,4);
+
+
+  // ============  Refresh widgets  ================
+  QLabel *refresh_rate_lb = new QLabel("refresh:");
+  refresh_rate_lb->setStyleSheet("font: 75 14pt;");
+  // -----------------------------------------------
+  QLineEdit *refresh_rate_le = new QLineEdit(QString::number(up_rate_ms_));
+  refresh_rate_le->setStyleSheet("font: 75 14pt;");
+  refresh_rate_le->setAlignment(Qt::AlignCenter);
+  refresh_rate_le->setMaxLength(5);
+  //refresh_rate_le->setSizeHint(50,30);
+  refresh_rate_le->setMaximumSize(QSize(60,30));
+  QObject::connect(refresh_rate_le, &QLineEdit::editingFinished, this, [this,refresh_rate_le]()
+  {
+    this->up_rate_ms_ = static_cast<unsigned>(refresh_rate_le->text().toDouble());
+    refresh_rate_le->setText(QString::number(this->up_rate_ms_));
+  });
+  QObject::connect(this, &ViewPoseDialog::updateRateChangedSignal, this, [this,refresh_rate_le](){ refresh_rate_le->setText(QString::number(this->up_rate_ms_)); });
+  // -----------------------------------------------
+  QLabel *refresh_rate_units_lb = new QLabel("ms");
+  refresh_rate_units_lb->setStyleSheet("font: 75 14pt;");
+
+  // ============  Refresh layout  ================
+  QHBoxLayout *refresh_layout = new QHBoxLayout;
+    refresh_layout->addWidget(refresh_rate_lb);
+    refresh_layout->addWidget(refresh_rate_le);
+    refresh_layout->addWidget(refresh_rate_units_lb);
+    refresh_layout->addStretch(0);
+
+  // ============  Main Layout  ================
+  QVBoxLayout *main_layout = new QVBoxLayout(this);
   // main_layout->setSizeConstraint(QLayout::SetFixedSize);
-  main_layout->addWidget(x_label,0,1, Qt::AlignCenter);
-  main_layout->addWidget(y_label,0,2, Qt::AlignCenter);
-  main_layout->addWidget(z_label,0,3, Qt::AlignCenter);
-  main_layout->addWidget(pos_label,1,0, Qt::AlignCenter);
-  main_layout->addWidget(x_le,1,1);
-  main_layout->addWidget(y_le,1,2);
-  main_layout->addWidget(z_le,1,3);
-  main_layout->addWidget(m_label,1,4);
-  main_layout->addItem(new QSpacerItem(0,20),2,0);
-  main_layout->addWidget(orient_label,3,0,2,1, Qt::AlignCenter);
-  main_layout->addWidget(scalar_label,3,1, Qt::AlignCenter);
-  main_layout->addWidget(vector_label,3,2,1,3, Qt::AlignCenter);
-  main_layout->addWidget(qw_le,4,1);
-  main_layout->addWidget(qx_le,4,2);
-  main_layout->addWidget(qy_le,4,3);
-  main_layout->addWidget(qz_le,4,4);
+  main_layout->addLayout(pose_layout);
+  main_layout->addLayout(refresh_layout);
 
   Qt::ConnectionType connect_type = Qt::AutoConnection;
   MyLineEdit *le_array[] = {x_le, y_le, z_le, qw_le, qx_le, qy_le, qz_le};
   for (int i=0;i<7;i++) QObject::connect(le_array[i], SIGNAL(textChanged(QString)), le_array[i], SLOT(setText(QString)), connect_type);
-
-//    QObject::connect(x_le, SIGNAL(textChanged(QString)), x_le, SLOT(setText(QString)), connect_type);
-//    QObject::connect(y_le, SIGNAL(textChanged(QString)), y_le, SLOT(setText(QString)), connect_type);
-//    QObject::connect(z_le, SIGNAL(textChanged(QString)), z_le, SLOT(setText(QString)), connect_type);
-//    QObject::connect(qw_le, SIGNAL(textChanged(QString)), qw_le, SLOT(setText(QString)), connect_type);
-//    QObject::connect(qx_le, SIGNAL(textChanged(QString)), qx_le, SLOT(setText(QString)), connect_type);
-//    QObject::connect(qy_le, SIGNAL(textChanged(QString)), qy_le, SLOT(setText(QString)), connect_type);
-//    QObject::connect(qz_le, SIGNAL(textChanged(QString)), qz_le, SLOT(setText(QString)), connect_type);
-
 }
 
 ViewPoseDialog::~ViewPoseDialog()

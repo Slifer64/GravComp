@@ -32,9 +32,10 @@ ViewJPosDialog::ViewJPosDialog(const arma::vec &jlow_lim, const arma::vec &jup_l
   sliders.resize(N_JOINTS);
   values.resize(N_JOINTS);
 
-  QGridLayout *main_layout = new QGridLayout(this);
-  // main_layout->setSizeConstraint(QLayout::SetFixedSize);
 
+  // ============  Units widgets  ================
+  units_combox_label = new QLabel("Units:");
+  units_combox_label->setStyleSheet("font: 75 14pt;");
   units_combox = new QComboBox;
   units_combox->addItem("degrees");
   units_combox->addItem("rad");
@@ -43,12 +44,37 @@ ViewJPosDialog::ViewJPosDialog(const arma::vec &jlow_lim, const arma::vec &jup_l
   units = DEGREES;
   QObject::connect(units_combox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(changeUnits(const QString &)));
 
-  units_combox_label = new QLabel("Units");
-  units_combox_label->setStyleSheet("font: 75 14pt;");
+  // ============  Refresh widgets  ================
+  QLabel *refresh_rate_lb = new QLabel("refresh:");
+  refresh_rate_lb->setStyleSheet("font: 75 14pt;");
+  // -----------------------------------------------
+  QLineEdit *refresh_rate_le = new QLineEdit(QString::number(up_rate_ms_));
+  refresh_rate_le->setStyleSheet("font: 75 14pt;");
+  refresh_rate_le->setAlignment(Qt::AlignCenter);
+  refresh_rate_le->setMaxLength(5);
+  //refresh_rate_le->setSizeHint(50,30);
+  refresh_rate_le->setMaximumSize(QSize(60,30));
+  QObject::connect(refresh_rate_le, &QLineEdit::editingFinished, this, [this,refresh_rate_le]()
+  {
+    this->up_rate_ms_ = static_cast<unsigned>(refresh_rate_le->text().toDouble());
+    refresh_rate_le->setText(QString::number(this->up_rate_ms_));
+  });
+  QObject::connect(this, &ViewJPosDialog::updateRateChangedSignal, this, [this,refresh_rate_le](){ refresh_rate_le->setText(QString::number(this->up_rate_ms_)); });
+  // -----------------------------------------------
+  QLabel *refresh_rate_units_lb = new QLabel("ms");
+  refresh_rate_units_lb->setStyleSheet("font: 75 14pt;");
 
-  main_layout->addWidget(units_combox_label,0,0, Qt::AlignRight);
-  main_layout->addWidget(units_combox,0,1);
+  QHBoxLayout *options_layout = new QHBoxLayout;
+  options_layout->addWidget(units_combox_label);
+  options_layout->addWidget(units_combox);
+  options_layout->addSpacing(30);
+  options_layout->addWidget(refresh_rate_lb);
+  options_layout->addWidget(refresh_rate_le);
+  options_layout->addWidget(refresh_rate_units_lb);
+  options_layout->addStretch(0);
 
+  QGridLayout *joints_layout = new QGridLayout;
+  // ============  Joints widgets  ================
   for (int i=0; i<N_JOINTS; i++)
   {
     labels[i] = new QLabel(jnames[i].c_str());
@@ -67,10 +93,14 @@ ViewJPosDialog::ViewJPosDialog(const arma::vec &jlow_lim, const arma::vec &jup_l
     QObject::connect(values[i], SIGNAL(textChanged(QString)), values[i], SLOT(setText(QString)));
     emit sliders[i]->valueChanged(0);
 
-    main_layout->addWidget(labels[i],i+1,0);
-    main_layout->addWidget(sliders[i],i+1,1);
-    main_layout->addWidget(values[i],i+1,2);
+    joints_layout->addWidget(labels[i],i,0);
+    joints_layout->addWidget(sliders[i],i,1);
+    joints_layout->addWidget(values[i],i,2);
   }
+
+  QVBoxLayout *main_layout = new QVBoxLayout(this);
+  main_layout->addLayout(options_layout);
+  main_layout->addLayout(joints_layout);
 }
 
 ViewJPosDialog::~ViewJPosDialog()

@@ -34,9 +34,10 @@ public:
 
   void setTitle(const std::string &title_) { this->setWindowTitle(title_.c_str()); }
   void setJointNames(const std::vector<std::string> &joint_names);
-  void setUpdateRate(unsigned up_rate_ms) { up_rate_ms_ = up_rate_ms; }
+  void setUpdateRate(unsigned up_rate_ms) { up_rate_ms_ = up_rate_ms;  emit updateRateChangedSignal(); }
 
 signals:
+  void updateRateChangedSignal();
   void updateSliderPosition(int pos);
 
 public slots:
