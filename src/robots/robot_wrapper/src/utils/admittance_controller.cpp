@@ -50,7 +50,7 @@ void AdmittanceCtrl::loadParams(const std::string &filename)
 
 void AdmittanceCtrl::update()
 {
-  arma::vec Fext = robot_->getTaskWrench();
+  arma::vec Fext = robot_->getCompTaskWrench();
   Fext = (1-a_f)*Fext_prev + a_f*Fext;
   Fext_prev = Fext;
 

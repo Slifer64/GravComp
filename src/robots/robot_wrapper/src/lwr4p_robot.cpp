@@ -46,10 +46,6 @@ LWR4p_Robot::LWR4p_Robot(bool use_sim)
 
   std::string load_fail_msg = LWR4p_Robot_fun_ + "Failed to load param ";
 
-  // =======  load the relative rotation between the robot end-effector and the tool  =======
-  arma::mat R_et;
-  if (parser.getParam("ee_tool_rot", R_et)) this->setEeToolRot(R_et);
-
   // =======  check whether to use joint limit avoidance  =======
   use_jlav = false;
   if (parser.getParam("use_jlav", use_jlav) && use_jlav)

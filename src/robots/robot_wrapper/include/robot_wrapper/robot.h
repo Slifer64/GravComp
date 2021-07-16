@@ -103,9 +103,6 @@ public:
 
   virtual std::vector<std::string> getJointNames() const = 0;
 
-  void setEeToolTrans(const arma::vec &p);
-  void setEeToolRot(const arma::mat &R);
-
   void setVelCLICK(double vel_click, double rotVel_click);
 
 protected:
@@ -122,9 +119,6 @@ protected:
   thr_::MtxVar<arma::vec> cart_vel_cmd;
   thr_::MtxVar<arma::vec> jtorque_cmd;
 
-  arma::mat p_et;
-  arma::mat R_et;
-  arma::vec q_et;
   std::shared_ptr<robo_::PPCJointLimAvoid> jlav;
 
   std::unique_ptr<AdmittanceCtrl> adm_ctrl;

@@ -46,10 +46,10 @@ public:
 
 protected:
 
-  // get wrench from Robot 
+  // get wrench from Robot
   virtual arma::vec getTaskWrenchFromRobot() const = 0;
   virtual void biasRobotSensor() { throw std::runtime_error("[WrenchInterface::biasRobotSensor]: Must be implemented from the corresponding robot...\n"); }
-  
+
   // get wrench from Ati
   std::shared_ptr<ati::FTSensor> ftsensor;
   arma::vec getTaskWrenchFromAti() const;
@@ -70,7 +70,7 @@ protected:
   arma::mat R_tool_sensor;
   arma::vec p_tool_sensor;
   arma::vec transferWrenchFromSensorToTool(const arma::vec &F_sensor) const;
- 
+
 };
 
 } // namespace rw_

@@ -70,7 +70,7 @@ arma::vec WrenchInterface::getCompTaskWrench() const
   tool_wrench.subvec(0,2) = R*tool_wrench.subvec(0,2);
   tool_wrench.subvec(3,5) = R*tool_wrench.subvec(3,5);
 
-  return applyFextDeadZone( getTaskWrench() - tool_wrench );
+  return applyFextDeadZone( get_wrench_fun() - tool_wrench );
 }
 
 arma::vec WrenchInterface::applyFextDeadZone(const arma::vec &F_ext) const
@@ -114,11 +114,11 @@ arma::vec WrenchInterface::getTaskWrenchFromAti() const
   (const_cast<ati::FTSensor *>(ftsensor.get()))->getMeasurements(msr,rdt,ft);
   //ftsensor->getMeasurements(measurements,rdt,ft);
 
-  // transfer sensor wrench to tool frame and express it w.r.t. 
+  // transfer sensor wrench to tool frame and express it w.r.t. tool frame
   arma::vec Fext( { msr[0], msr[1], msr[2], msr[3], msr[4], msr[5] } );
   Fext = transferWrenchFromSensorToTool(Fext);
 
-  // express tool wrench w.r.t. base frame 
+  // express tool wrench w.r.t. base frame
   arma::mat R = get_task_rotmat();
   Fext.subvec(0,2) = R*Fext.subvec(0,2);
   Fext.subvec(3,5) = R*Fext.subvec(3,5);

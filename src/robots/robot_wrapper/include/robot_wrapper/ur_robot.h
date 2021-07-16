@@ -20,7 +20,7 @@ public:
   { return robot->getTaskPosition(); }
 
   arma::mat getTaskRotMat() const override
-  { return robot->getTaskRotm() * R_et; }
+  { return robot->getTaskRotm(); }
 
   arma::vec getTaskOrientation() const override
   { return rotm2quat(this->getTaskRotMat()); }

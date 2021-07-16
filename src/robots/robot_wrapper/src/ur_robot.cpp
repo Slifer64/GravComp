@@ -92,10 +92,6 @@ Ur_Robot::Ur_Robot(bool use_sim)
 
   std::string load_fail_msg = Ur_Robot_fun_ + "Failed to load param ";
 
-  // =======  load the relative rotation between the robot end-effector and the tool  =======
-  arma::mat R_et;
-  if (parser.getParam("ee_tool_rot", R_et)) this->setEeToolRot(R_et);
-
   // =======  check whether to use joint limit avoidance  =======
   use_jlav = false;
   if (parser.getParam("use_jlav", use_jlav) && use_jlav)
@@ -335,16 +331,16 @@ void Ur_Robot::stop()
 }
 
 arma::vec Ur_Robot::getTaskWrenchFromRobot() const
-  { 
-    arma::vec Fext = robot->getSensorWrench();
+{
+  arma::vec Fext = robot->getSensorWrench();
 
-    Fext = transferWrenchFromSensorToTool(Fext);
+  Fext = transferWrenchFromSensorToTool(Fext);
 
-    // express tool wrench w.r.t. base frame 
-    arma::mat R = get_task_rotmat();
-    Fext.subvec(0,2) = R*Fext.subvec(0,2);
-    Fext.subvec(3,5) = R*Fext.subvec(3,5);
-    return Fext;
-  }
+  // express tool wrench w.r.t. base frame
+  arma::mat R = get_task_rotmat();
+  Fext.subvec(0,2) = R*Fext.subvec(0,2);
+  Fext.subvec(3,5) = R*Fext.subvec(3,5);
+  return Fext;
+}
 
 } // namespace rw_

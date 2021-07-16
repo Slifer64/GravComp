@@ -110,24 +110,19 @@ public:
     return robot_urdf->getTaskQuat(getJointsPosition());
   }
 
-  // returns the wrench measured by the sensor w.r.t. the base frame
+  /* Returns the wrench measured by the robot sensor, located at the TCP, expressed in the robot's base frame
+   */
   arma::vec getTcpWrench() const override
   {
     return ur_driver->getTcpWrench();
   }
 
-  // returns the wrench measured by the sensor w.r.t. the sensor frame
+  /* Returns the wrench measured by the robot sensor, expressed in the robot's sensor frame, which is the TCP
+   */
   arma::vec getSensorWrench() const
   {
     arma::mat R = quat2rotm( ur_driver->getTcpQuat() ).t();
     arma::vec F = getTcpWrench();
-
-    // arma::vec F2 = arma::join_vert( R*F.subvec(0,2), R*F.subvec(3,5) );
-
-    // std::cerr << "==================================\n";
-    // std::cerr << "F = " << F.t() << "\n";
-    //std::cerr << "F2 = " << F2.t() << "\n";
-
     return arma::join_vert( R*F.subvec(0,2), R*F.subvec(3,5) );
   }
 
