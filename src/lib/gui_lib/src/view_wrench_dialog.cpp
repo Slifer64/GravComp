@@ -8,14 +8,43 @@ namespace gui_
 
 #define ViewWrenchDialog_fun_ std::string("[ViewWrenchDialog::") + __func__ + "]: "
 
+ViewWrenchDialog::ViewWrenchDialog(const std::map< std::string, std::function<arma::vec()> > &wrench_map_, QWidget *parent): QDialog(parent)
+{
+  init(wrench_map_);
+}
+
+ViewWrenchDialog::ViewWrenchDialog(const std::vector<std::function<arma::vec()>> &wrench_funs, const std::vector<std::string> &wrench_fun_names, QWidget *parent): QDialog(parent)
+{
+  if ( wrench_funs.size() != wrench_fun_names.size() )  throw std::runtime_error(ViewWrenchDialog_fun_ + "Wrench functions and names don't have the same size...\n");
+  std::map< std::string, std::function<arma::vec()> > wrench_map_;
+  for (int i=0; i<wrench_funs.size(); i++) wrench_map_[wrench_fun_names[i]] = wrench_funs[i];
+
+  init(wrench_map_);
+}
+
 ViewWrenchDialog::ViewWrenchDialog(std::function<arma::vec()> readWrench, std::function<arma::mat()> getRelRot, QWidget *parent): QDialog(parent)
 {
+  std::map< std::string, std::function<arma::vec()> > wrench_map_;
+  wrench_map_["base"] = readWrench;
+  wrench_map_["sensor"] = [this, readWrench, getRelRot]()
+  {
+    arma::vec wrench = readWrench();
+    arma::mat R = getRelRot();
+    wrench.subvec(0,2) = R.t()*wrench.subvec(0,2);
+    wrench.subvec(3,5) = R.t()*wrench.subvec(3,5);
+    return wrench;
+  };
+
+  init(wrench_map_);
+}
+
+void ViewWrenchDialog::init(const std::map< std::string, std::function<arma::vec()> > &wrench_map_)
+{
+  this->wrench_map = wrench_map_;
+
   run = false;
 
   up_rate_ms_ = 100;
-
-  this->read_wrench = readWrench;
-  this->get_rel_rot = getRelRot;
 
   this->setWindowTitle("Tool wrench");
 
@@ -43,12 +72,13 @@ ViewWrenchDialog::ViewWrenchDialog(std::function<arma::vec()> readWrench, std::f
   ref_frame_lb->setStyleSheet("font: 75 14pt;");
   ref_frame_lb->setAlignment(Qt::AlignCenter);
   ref_frame_cmbx = new QComboBox;
-  ref_frame_cmbx->addItem("base");
-  ref_frame_cmbx->addItem("sensor");
+  for (auto it = wrench_map.begin(); it!=wrench_map.end(); it++) ref_frame_cmbx->addItem(it->first.c_str());
+  // ref_frame_cmbx->addItem("base");
+  // ref_frame_cmbx->addItem("sensor");
   ref_frame_cmbx->setMaximumWidth(90);
-  //ref_frame_cmbx->setCurrentIndex(0); // degrees
-  QObject::connect(ref_frame_cmbx, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(refFrameChangedSlot(const QString &)));
-  emit ref_frame_cmbx->currentIndexChanged("base");
+  QObject::connect(ref_frame_cmbx, &QComboBox::currentTextChanged, this, [this](const QString &fun_name)
+  { get_wrench = wrench_map.find(fun_name.toStdString())->second; });
+  emit ref_frame_cmbx->currentTextChanged(wrench_map.begin()->first.c_str());
 
   QHBoxLayout *ref_frame_layout = new QHBoxLayout;
   ref_frame_layout->addWidget(ref_frame_lb);
@@ -58,6 +88,7 @@ ViewWrenchDialog::ViewWrenchDialog(std::function<arma::vec()> readWrench, std::f
 
   QLabel *refresh_rate_lb = new QLabel("refresh:");
   refresh_rate_lb->setStyleSheet("font: 75 14pt;");
+  // -----------------------------------------------
   QLineEdit *refresh_rate_le = new QLineEdit(QString::number(up_rate_ms_));
   refresh_rate_le->setStyleSheet("font: 75 14pt;");
   refresh_rate_le->setAlignment(Qt::AlignCenter);
@@ -69,6 +100,8 @@ ViewWrenchDialog::ViewWrenchDialog(std::function<arma::vec()> readWrench, std::f
     this->up_rate_ms_ = static_cast<unsigned>(refresh_rate_le->text().toDouble());
     refresh_rate_le->setText(QString::number(this->up_rate_ms_));
   });
+  QObject::connect(this, &ViewWrenchDialog::updateRateChangedSignal, this, [this,refresh_rate_le](){ refresh_rate_le->setText(QString::number(this->up_rate_ms_)); });
+  // -----------------------------------------------
   QLabel *refresh_rate_units_lb = new QLabel("ms");
   refresh_rate_units_lb->setStyleSheet("font: 75 14pt;");
 
@@ -147,28 +180,6 @@ if (run)
   run = false;
   this->hide();
 }
-}
-
-void ViewWrenchDialog::refFrameChangedSlot(const QString &ref_frame)
-{
-  if (ref_frame.compare("sensor")==0) get_wrench = std::bind(&ViewWrenchDialog::getLocalWrench, this);
-  else if (ref_frame.compare("base")==0) get_wrench = std::bind(&ViewWrenchDialog::getBaseWrench, this);
-  else throw std::runtime_error(ViewWrenchDialog_fun_ + "Invalid option: \"" + ref_frame.toStdString() + "\"...\n");
-}
-
-
-arma::vec ViewWrenchDialog::getLocalWrench()
-{
-  arma::vec wrench = read_wrench();
-  arma::mat R = get_rel_rot();
-  wrench.subvec(0,2) = R.t()*wrench.subvec(0,2);
-  wrench.subvec(3,5) = R.t()*wrench.subvec(3,5);
-  return wrench;
-}
-
-arma::vec ViewWrenchDialog::getBaseWrench()
-{
-  return read_wrench();
 }
 
 void ViewWrenchDialog::updateDialogThread()

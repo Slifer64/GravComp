@@ -35,7 +35,7 @@ MainWindow::MainWindow(const rw_::Robot *robot, GravComp *grav_comp, QWidget *pa
   createLayouts();
   createActions();
   createMenus();
-  
+
   qRegisterMetaType<ExecResultMsg>("ExecResultMsg");
 
   QObject::connect( this, &MainWindow::robotNotOkSignal, this, &MainWindow::robotNotOkSlot );
@@ -144,7 +144,7 @@ void MainWindow::createActions()
   load_wrenchOrient_act->setShortcut(QKeySequence("Ctrl+D+L"));
   load_wrenchOrient_act->setStatusTip(tr("Loads the wrench-orient data from the file the user specifies."));
   QObject::connect( load_wrenchOrient_act, &QAction::triggered, this, &MainWindow::loadWrenchOrientTriggered );
-  
+
   save_wrenchOrient_act = new QAction(tr("&Save wrench-orient data..."), this);
   save_wrenchOrient_act->setShortcut(QKeySequence("Ctrl+D+S"));
   save_wrenchOrient_act->setStatusTip(tr("Saves the recorded wrench-orient data to the file specified by the user."));
@@ -173,7 +173,7 @@ void MainWindow::createActions()
   bias_FTsensor_act->setStatusTip(tr("Bias the FT-sensor."));
   QObject::connect( bias_FTsensor_act, &QAction::triggered, [this](){ showMsg( grav_comp->biasFTsensor() ); } );
 
-  
+
   view_wrench_act = new QAction(tr("View wrench"), this);
   view_wrench_act->setStatusTip(tr("Opens a window displaying the tool wrench."));
   QObject::connect( view_wrench_act, &QAction::triggered, [this](){ this->view_wrench_dialog->launch(); } );
@@ -257,10 +257,33 @@ void MainWindow::createWidgets()
   QFont font1("Ubuntu", 13, QFont::DemiBold);
   QFont font2("Ubuntu", 15, QFont::DemiBold);
 
-  view_wrench_dialog = new gui_::ViewWrenchDialog(std::bind(&rw_::Robot::getTaskWrench, robot), std::bind(&rw_::Robot::getTaskRotMat, robot), this);
+
+  //view_wrench_dialog = new gui_::ViewWrenchDialog(std::bind(&rw_::Robot::getTaskWrench, robot), std::bind(&rw_::Robot::getTaskRotMat, robot), this);
+  std::map< std::string, std::function<arma::vec()> > wrench_map;
+  wrench_map["base"] = [this](){ return robot->getTaskWrench(); };
+  wrench_map["tool"] = [this]()
+  {
+    arma::vec wrench = robot->getTaskWrench();
+    arma::mat R = robot->getTaskRotMat().t();
+    wrench.subvec(0,2) = R*wrench.subvec(0,2);
+    wrench.subvec(3,5) = R*wrench.subvec(3,5);
+    return wrench;
+  };
+  view_wrench_dialog = new gui_::ViewWrenchDialog(wrench_map, this);
   view_wrench_dialog->setTitle("Tool wrench");
 
-  view_compWrench_dialog = new gui_::ViewWrenchDialog(std::bind(&rw_::Robot::getCompTaskWrench, robot), std::bind(&rw_::Robot::getTaskRotMat, robot), this);
+
+  std::map< std::string, std::function<arma::vec()> > comp_wrench_map;
+  comp_wrench_map["base"] = [this](){ return robot->getCompTaskWrench(); };
+  comp_wrench_map["tool"] = [this]()
+  {
+    arma::vec wrench = robot->getCompTaskWrench();
+    arma::mat R = robot->getTaskRotMat().t();
+    wrench.subvec(0,2) = R*wrench.subvec(0,2);
+    wrench.subvec(3,5) = R*wrench.subvec(3,5);
+    return wrench;
+  };
+  view_compWrench_dialog = new gui_::ViewWrenchDialog(comp_wrench_map, this);
   view_compWrench_dialog->setTitle("Compensated Tool wrench");
 
   auto getTaskPoseFun = [this]()
@@ -274,7 +297,7 @@ void MainWindow::createWidgets()
   view_jpos_dialog = new gui_::ViewJPosDialog(robot->getJointPosLowLim(), robot->getJointPosUpperLim(), std::bind(&rw_::Robot::getJointsPosition, robot), this);
   view_jpos_dialog->setJointNames(robot->getJointNames());
   view_jpos_dialog->setTitle("Robot joints position");
-  
+
   set_poses_dialog = new SetPosesDialog(robot->getNumOfJoints(), this);
 
   mode_label = new QLabel;
@@ -294,7 +317,7 @@ void MainWindow::createWidgets()
   idle_btn->setFont(QFont("Ubuntu", 13, QFont::DemiBold));
   QObject::connect( idle_btn, &QPushButton::clicked, [this](){ this->setMode(IDLE);} );
 
-  
+
   // ===============================
 
   emergency_stop_btn = new QPushButton;
@@ -315,7 +338,7 @@ void MainWindow::createWidgets()
   rec_predef_poses_btn->setText("Record predefined poses");
   rec_predef_poses_btn->setFont(font1);
   QObject::connect( rec_predef_poses_btn, &QPushButton::clicked, this, &MainWindow::recPredefPosesPressed );
-  
+
   rec_wrenchQuat_btn = new QPushButton;
   rec_wrenchQuat_btn->setText("record wrench-orient");
   rec_wrenchQuat_btn->setFont(font1);
